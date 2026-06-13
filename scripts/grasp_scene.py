@@ -35,16 +35,23 @@ CONTACT_GEOMS = {
 # wraps cable from both sides; lift phase (J2/J4/J6 all -2.0 rad/s) raises
 # palm by ~0.06m, dragging cable up off the tables — true vertical lift.
 ARM_LPOSE_QPOS = (0.0, 0.5, 0.0, 0.94, 0.0, 1.60, 0.0)  # 7 hinges; finger qpos set separately
-TABLE_X_LEFT = 0.18           # left table center  (cable spans 0.16..0.40, palm at 0.33 is right above mid)
-TABLE_X_RIGHT = 0.48          # right table center
+TABLE_X_LEFT = 0.28           # very close tables (gap 0.10m); cable mid-span stays high enough for fingers to grasp; excess cable hangs off both ends
+TABLE_X_RIGHT = 0.38
 TABLE_TOP_Z = 0.14
 TABLE_TOP_HALF = 0.04
 TABLE_TOP_HALF_Y = 0.05
 TABLE_TOP_THICK = 0.01
 TABLE_LEG_HALF = 0.025
 CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.156, just above table
-CABLE_SPACING = 0.022         # equals seg_len so capsule heads touch — looks continuous
-N_CABLE_SEG = 16              # total length 15*0.022 = 0.330m > table gap 0.30m, rests on both
+# Rigid cable params: N=40 + damping=0.001 + armature=0.0001 came out as the
+# sweet spot in scripts/rigid_cable_sweep.py — looks like a real continuous
+# rope (sub-cm segment length, smooth catenary), backward NaN-free.
+N_CABLE_SEG = 40
+CABLE_SEG_LEN = 0.020          # capsule cylinder length (excluding hemisphere caps)
+CABLE_SEG_RADIUS = 0.010
+CABLE_DAMPING = 0.001
+CABLE_ARMATURE = 0.0001
+CABLE_TOTAL_LEN = 0.30  # absolute cable length; decoupled from table gap. Excess piles up on tabletops, sag depth is set by gap × physics
 INITIAL_FINGER_OPEN = 0.005
 
 APPROACH_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # arm idle in L-pose, cable settles
@@ -76,18 +83,21 @@ def fmt_mb(value):
     return "None" if value is None else f"{value:.1f}"
 
 def _make_bridge_scene_mjcf() -> str:
-    """Build a single MJCF that contains:
-      - two fixed tables (worldbody-level, no joint, just static box geoms)
-      - a horizontal 12-seg ball-jointed cable spanning from one table top to
-        the other, NOT welded — it rests under gravity + contact friction.
-    Cable runs along x at z = CABLE_REST_Z. Each segment B_i is a child of the
-    previous via ball joint, with successive `pos="spacing 0 0"` so the chain
-    extends along +x. The B0 root has a freejoint and is positioned at the
-    left table top so when sim starts the cable falls a few mm and settles."""
-    seg_len = 0.020
+    """Bridge scene: two fixed tables + N=40 rigid cable laid across with 40%
+    slack so it sags into a real catenary curve. Capsule heads close enough
+    that the chain reads as continuous (sub-cm spacing). damping=0.001 +
+    armature=0.0001 = soft enough to droop, stiff enough to be backward-stable
+    (per scripts/rigid_cable_sweep.py).
+    """
+    seg_len = CABLE_SEG_LEN
     halflen = seg_len * 0.5
-    spacing = CABLE_SPACING
-    x0 = TABLE_X_LEFT - 0.02  # cable starts inboard of left table edge
+    spacing = CABLE_TOTAL_LEN / max(1, N_CABLE_SEG - 1) if N_CABLE_SEG > 1 else 0.0
+    # Place B0 so the cable midpoint sits at the midpoint between the tables.
+    # B0 is the freejoint root (anchors the whole chain pose); without
+    # centering the chain, gravity drags the free end across to the anchored
+    # end and the cable slides asymmetrically off.
+    table_mid = (TABLE_X_LEFT + TABLE_X_RIGHT) * 0.5
+    x0 = table_mid - CABLE_TOTAL_LEN * 0.5
     z0 = CABLE_REST_Z
 
     bodies_open: list[str] = []
@@ -97,14 +107,14 @@ def _make_bridge_scene_mjcf() -> str:
             bodies_open.append(
                 f'<body name="B{i}" pos="{x0} 0 {z0}">\n'
                 f'  <freejoint/>\n'
-                f'  <geom type="capsule" euler="0 90 0" size="0.010 {halflen}" '
+                f'  <geom type="capsule" euler="0 90 0" size="{CABLE_SEG_RADIUS} {halflen}" '
                 f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         else:
             bodies_open.append(
                 f'<body name="B{i}" pos="{spacing} 0 0">\n'
-                f'  <joint type="ball" damping="0.01" armature="0.001"/>\n'
-                f'  <geom type="capsule" euler="0 90 0" size="0.010 {halflen}" '
+                f'  <joint type="ball" damping="{CABLE_DAMPING}" armature="{CABLE_ARMATURE}"/>\n'
+                f'  <geom type="capsule" euler="0 90 0" size="{CABLE_SEG_RADIUS} {halflen}" '
                 f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         bodies_close.append("</body>")

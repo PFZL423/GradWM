@@ -26,8 +26,8 @@ from make_arm_mjcf import make_arm_gripper_mjcf
 
 OUT_PATH = Path("analysis/grasp_phase1.mp4")
 RES = (640, 480)
-FPS = 20
-N_SETTLE = 30   # let cable settle on tables before recording
+FPS = 50   # physics is 500 Hz (dt=2e-3); fps=50 = 10x slow motion (was 25x at fps=20)
+N_SETTLE = 30   # shorter cable (15% slack) settles fast
 
 def main():
     arm_xml = _grayscale_arm_geoms(_enable_arm_contact_geoms(make_arm_gripper_mjcf()))
@@ -95,10 +95,16 @@ def main():
         arm.set_dofs_velocity(torch.tensor(CLOSE_QVEL, dtype=torch.float32))
         step_and_render()
 
-    # 4) Lift (25 steps) — J2/J4/J6 reverse, palm rises
-    print(f"[render] lift (25 steps)")
-    for _ in range(25):
+    # 4) Lift (60 steps) — J2/J4/J6 reverse, palm rises (extended so cable shape evolves visibly)
+    print(f"[render] lift (60 steps)")
+    for _ in range(60):
         arm.set_dofs_velocity(torch.tensor(LIFT_QVEL, dtype=torch.float32))
+        step_and_render()
+
+    # 5) Hold (80 steps) — arm static, watch cable swing settle / hang shape
+    print(f"[render] hold (80 steps)")
+    for _ in range(80):
+        arm.set_dofs_velocity(torch.zeros(arm.n_dofs, dtype=torch.float32))
         step_and_render()
 
     # Write mp4
