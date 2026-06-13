@@ -12,7 +12,6 @@ from datetime import datetime
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from make_arm_mjcf import TOTAL_DOFS, make_arm_gripper_mjcf
-from segment_death_line import make_cable_mjcf
 import torch
 import genesis as gs
 
@@ -29,11 +28,26 @@ CONTACT_GEOMS = {
     "finger_left_box",
     "finger_right_box",
 }
-APPROACH_QVEL = [0.0, 0.05, 0.0, -0.03, 0.0, 0.02, 0.0, 0.0, 0.0]
-# finger slide joints: positive q closes (per make_arm_mjcf axes "0 -1 0" / "0 1 0").
-CLOSE_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03]
-LIFT_QVEL = [0.0, -0.10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-TARGET_QVEL = [0.0] * 7 + [0.03, 0.03]
+# Bridge-scene geometry. Two tables on x=±TABLE_X, cable rests across them
+# along x. Arm sits at origin; with default qpos=0, palm is at z≈0.70 and
+# fingers extend up by 0.06 to z≈0.76 (fingers point +Z out of palm).
+# So we put the cable at z≈0.73 — between palm height and finger tip — so
+# fingers can wrap around the cable from below and close on it.
+TABLE_X = 0.30           # half-distance between tables (table centers at x=±0.30)
+TABLE_TOP_Z = 0.72       # table top center; cable lies just above
+TABLE_TOP_HALF = 0.04    # table top half-extent in x
+TABLE_TOP_HALF_Y = 0.05  # table top half-extent in y
+TABLE_TOP_THICK = 0.01   # half-thickness in z
+TABLE_LEG_HALF = 0.025
+CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.736, just above table
+CABLE_SPACING = 0.055
+N_CABLE_SEG = 12
+INITIAL_FINGER_OPEN = 0.025  # smaller than cable separation so close phase actually grips
+
+APPROACH_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # arm idle, gravity settles cable
+CLOSE_QVEL    = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5, 1.5]   # finger close fast — gap 0.05m → 0 over 20 steps
+LIFT_QVEL     = [0.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # J2 reverse (single joint), palm rotates up
+TARGET_QVEL   = [0.0] * 7 + [1.5, 1.5]
 
 def gpu_mem_mb():
     """Process-level GPU memory in MB via nvidia-smi (sees Taichi too)."""
@@ -58,19 +72,74 @@ def gpu_mem_mb():
 def fmt_mb(value):
     return "None" if value is None else f"{value:.1f}"
 
-def _move_cable_anchor(cable_mjcf: str, x: float, y: float, z: float) -> str:
-    """Move BOTH the freejoint root B0 (where the chain actually hangs) and
-    the sibling anchor marker. The anchor body is just a visual+weld target;
-    the chain physically lives on B0's freejoint."""
-    out = cable_mjcf.replace(
-        '<body name="anchor" pos="0 0 1.07">',
-        f'<body name="anchor" pos="{x} {y} {z + 0.07}">',
-    )
-    out = out.replace(
-        '<body name="B0" pos="0 0 1.0">',
-        f'<body name="B0" pos="{x} {y} {z}">',
-    )
-    return out
+def _make_bridge_scene_mjcf() -> str:
+    """Build a single MJCF that contains:
+      - two fixed tables (worldbody-level, no joint, just static box geoms)
+      - a horizontal 12-seg ball-jointed cable spanning from one table top to
+        the other, NOT welded — it rests under gravity + contact friction.
+    Cable runs along x at z = CABLE_REST_Z. Each segment B_i is a child of the
+    previous via ball joint, with successive `pos="spacing 0 0"` so the chain
+    extends along +x. The B0 root has a freejoint and is positioned at the
+    left table top so when sim starts the cable falls a few mm and settles."""
+    # Cable starts at -TABLE_X + 0.02 (just inboard of left table edge) and
+    # extends along +x. Total length ≈ 11 * spacing = 0.605m, ends just inboard
+    # of right table edge.
+    seg_len = 0.025
+    halflen = seg_len * 0.5
+    spacing = CABLE_SPACING
+    x0 = -TABLE_X + 0.02
+    z0 = CABLE_REST_Z
+
+    bodies_open: list[str] = []
+    bodies_close: list[str] = []
+    for i in range(N_CABLE_SEG):
+        if i == 0:
+            bodies_open.append(
+                f'<body name="B{i}" pos="{x0} 0 {z0}">\n'
+                f'  <freejoint/>\n'
+                # capsule along x: euler="0 90 0" rotates the default-z capsule onto x.
+                f'  <geom type="capsule" euler="0 90 0" size="0.005 {halflen}" '
+                f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
+            )
+        else:
+            bodies_open.append(
+                f'<body name="B{i}" pos="{spacing} 0 0">\n'
+                f'  <joint type="ball" damping="0.01" armature="0.001"/>\n'
+                f'  <geom type="capsule" euler="0 90 0" size="0.005 {halflen}" '
+                f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
+            )
+        bodies_close.append("</body>")
+
+    nested = "\n".join(bodies_open) + "\n" + "\n".join(bodies_close)
+
+    table_top_thick = TABLE_TOP_THICK
+    leg_half = TABLE_LEG_HALF
+    leg_top_z = TABLE_TOP_Z - table_top_thick
+    leg_half_z = leg_top_z * 0.5
+    left_x = -TABLE_X
+    right_x = TABLE_X
+
+    return f"""<mujoco model="bridge_scene">
+    <worldbody>
+        <!-- left table -->
+        <geom name="table_L_top" type="box" pos="{left_x} 0 {TABLE_TOP_Z}"
+              size="{TABLE_TOP_HALF} {TABLE_TOP_HALF_Y} {table_top_thick}"
+              rgba="0.55 0.40 0.25 1" contype="1" conaffinity="1"/>
+        <geom name="table_L_leg" type="box" pos="{left_x} 0 {leg_half_z}"
+              size="{leg_half} {leg_half} {leg_half_z}"
+              rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
+        <!-- right table -->
+        <geom name="table_R_top" type="box" pos="{right_x} 0 {TABLE_TOP_Z}"
+              size="{TABLE_TOP_HALF} {TABLE_TOP_HALF_Y} {table_top_thick}"
+              rgba="0.55 0.40 0.25 1" contype="1" conaffinity="1"/>
+        <geom name="table_R_leg" type="box" pos="{right_x} 0 {leg_half_z}"
+              size="{leg_half} {leg_half} {leg_half_z}"
+              rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
+        <!-- cable lying across -->
+        {nested}
+    </worldbody>
+</mujoco>
+"""
 
 def _enable_arm_contact_geoms(arm_mjcf: str) -> str:
     root = ET.fromstring(arm_mjcf)
@@ -179,23 +248,28 @@ def main():
     arm_tmp = _write_temp_mjcf(
         "grasp_scene_arm_", _enable_arm_contact_geoms(make_arm_gripper_mjcf())
     )
-    cable_text = _move_cable_anchor(
-        make_cable_mjcf(n_segments=12, with_weld=True), 0.04, 0.0, 1.0
-    )
-    cable_tmp = _write_temp_mjcf("grasp_scene_cable_", cable_text)
+    bridge_tmp = _write_temp_mjcf("grasp_scene_bridge_", _make_bridge_scene_mjcf())
     print(f"[grasp] temp arm mjcf: {arm_tmp}")
-    print(f"[grasp] temp cable mjcf: {cable_tmp}")
+    print(f"[grasp] temp bridge mjcf: {bridge_tmp}")
     print(f"[grasp] enabled arm contact geoms: {sorted(CONTACT_GEOMS)}")
+    print(f"[grasp] tables at x=±{TABLE_X}, top z={TABLE_TOP_Z}; cable rest z={CABLE_REST_Z}")
     gs.init(backend=gs.gpu, precision="32", logging_level="warning")
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(dt=2e-3, substeps=4, substeps_local=4, requires_grad=True),
         show_viewer=False,
     )
-    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -1.0)))
+    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -0.001)))
     arm = scene.add_entity(gs.morphs.MJCF(file=arm_tmp))
-    cable = scene.add_entity(gs.morphs.MJCF(file=cable_tmp))
+    bridge = scene.add_entity(gs.morphs.MJCF(file=bridge_tmp))
     scene.build()
     scene.reset()
+    # Open the gripper so the cable can slip between fingers from below.
+    # arm dofs: 7 hinges (J1..J7) + 2 finger slides (left, right).
+    initial_qpos = torch.zeros(arm.n_dofs, dtype=torch.float32)
+    initial_qpos[7] = INITIAL_FINGER_OPEN  # finger_left
+    initial_qpos[8] = INITIAL_FINGER_OPEN  # finger_right
+    arm.set_dofs_position(initial_qpos)
+    print(f"[grasp] arm initial qpos: hinges 0, fingers={INITIAL_FINGER_OPEN}")
     graph_cleanup = None
     cleanup_name = "torch.cuda.empty_cache()"
     for name in ("reset_grad", "reset_grad_state", "clear_grad", "zero_grad", "_reset_grad"):
@@ -214,7 +288,7 @@ def main():
             break
     print(f"[grasp] selected graph cleanup: {cleanup_name}")
     print(f"[grasp] arm n_links={arm.n_links} n_dofs={arm.n_dofs}")
-    print(f"[grasp] cable n_links={cable.n_links} n_dofs={cable.n_dofs}")
+    print(f"[grasp] bridge n_links={bridge.n_links} n_dofs={bridge.n_dofs}")
     if arm.n_dofs != TOTAL_DOFS:
         print(f"[VERDICT] FAIL  {SCRIPT_NAME}: expected arm n_dofs={TOTAL_DOFS}, got {arm.n_dofs}")
         return 1
@@ -271,7 +345,7 @@ def main():
                     [
                         f"timestamp={datetime.now().isoformat(timespec='seconds')}",
                         f"arm n_links={arm.n_links} n_dofs={arm.n_dofs}",
-                        f"cable n_links={cable.n_links} n_dofs={cable.n_dofs}",
+                        f"bridge n_links={bridge.n_links} n_dofs={bridge.n_dofs}",
                         f"warmup status={warmup['status']} grad_nan={warmup['nan_count']}/{HORIZON} forward_fps={warmup['fwd_rate']:.3f} peak_gpu_mem_mb={fmt_mb(warmup['peak_proc'])}",
                         f"steady1 status={steady1['status']} grad_nan={steady1['nan_count']}/{HORIZON} forward_fps={steady1['fwd_rate']:.3f} peak_gpu_mem_mb={fmt_mb(steady1['peak_proc'])}",
                         f"grad_norms={grad_csv}",
