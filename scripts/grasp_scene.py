@@ -29,24 +29,27 @@ CONTACT_GEOMS = {
     "finger_right_box",
 }
 # Bridge-scene geometry. Two tables on x=±TABLE_X, cable rests across them
-# along x. Arm sits at origin; with default qpos=0, palm is at z≈0.70 and
-# fingers extend up by 0.06 to z≈0.76 (fingers point +Z out of palm).
-# So we put the cable at z≈0.73 — between palm height and finger tip — so
-# fingers can wrap around the cable from below and close on it.
-TABLE_X = 0.30           # half-distance between tables (table centers at x=±0.30)
-TABLE_TOP_Z = 0.72       # table top center; cable lies just above
-TABLE_TOP_HALF = 0.04    # table top half-extent in x
-TABLE_TOP_HALF_Y = 0.05  # table top half-extent in y
-TABLE_TOP_THICK = 0.01   # half-thickness in z
+# along x. Arm in manipulation L-pose (J2/J4/J6 bent so palm faces -Z, fingers
+# pointing straight down) reaches palm to (0.33, 0, 0.178); finger tips at
+# z≈0.118. Cable placed in finger-mid region z≈0.146 so close phase actually
+# wraps cable from both sides; lift phase (J2/J4/J6 all -2.0 rad/s) raises
+# palm by ~0.06m, dragging cable up off the tables — true vertical lift.
+ARM_LPOSE_QPOS = (0.0, 0.5, 0.0, 0.94, 0.0, 1.60, 0.0)  # 7 hinges; finger qpos set separately
+TABLE_X_LEFT = 0.10           # left table center  (cable spans 0.10..0.55)
+TABLE_X_RIGHT = 0.55          # right table center
+TABLE_TOP_Z = 0.14
+TABLE_TOP_HALF = 0.04
+TABLE_TOP_HALF_Y = 0.05
+TABLE_TOP_THICK = 0.01
 TABLE_LEG_HALF = 0.025
-CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.736, just above table
-CABLE_SPACING = 0.055
+CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.156, just above table
+CABLE_SPACING = 0.040
 N_CABLE_SEG = 12
-INITIAL_FINGER_OPEN = 0.025  # smaller than cable separation so close phase actually grips
+INITIAL_FINGER_OPEN = 0.005   # finger qpos start; with default finger_center_y=0.046 → finger box centers at y=±0.041
 
-APPROACH_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # arm idle, gravity settles cable
-CLOSE_QVEL    = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5, 1.5]   # finger close fast — gap 0.05m → 0 over 20 steps
-LIFT_QVEL     = [0.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # J2 reverse (single joint), palm rotates up
+APPROACH_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # arm idle in L-pose, cable settles
+CLOSE_QVEL    = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5, 1.5]   # finger close hard: q saturates at 0.04, fingers genuinely contact cable
+LIFT_QVEL     = [0.0, -2.0, 0.0, -2.0, 0.0, -2.0, 0.0, 0.0, 0.0]  # J2+J4+J6 all reverse → palm lifts ~0.06m
 TARGET_QVEL   = [0.0] * 7 + [1.5, 1.5]
 
 def gpu_mem_mb():
@@ -81,13 +84,10 @@ def _make_bridge_scene_mjcf() -> str:
     previous via ball joint, with successive `pos="spacing 0 0"` so the chain
     extends along +x. The B0 root has a freejoint and is positioned at the
     left table top so when sim starts the cable falls a few mm and settles."""
-    # Cable starts at -TABLE_X + 0.02 (just inboard of left table edge) and
-    # extends along +x. Total length ≈ 11 * spacing = 0.605m, ends just inboard
-    # of right table edge.
-    seg_len = 0.025
+    seg_len = 0.020
     halflen = seg_len * 0.5
     spacing = CABLE_SPACING
-    x0 = -TABLE_X + 0.02
+    x0 = TABLE_X_LEFT - 0.02  # cable starts inboard of left table edge
     z0 = CABLE_REST_Z
 
     bodies_open: list[str] = []
@@ -97,7 +97,6 @@ def _make_bridge_scene_mjcf() -> str:
             bodies_open.append(
                 f'<body name="B{i}" pos="{x0} 0 {z0}">\n'
                 f'  <freejoint/>\n'
-                # capsule along x: euler="0 90 0" rotates the default-z capsule onto x.
                 f'  <geom type="capsule" euler="0 90 0" size="0.005 {halflen}" '
                 f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
@@ -116,23 +115,21 @@ def _make_bridge_scene_mjcf() -> str:
     leg_half = TABLE_LEG_HALF
     leg_top_z = TABLE_TOP_Z - table_top_thick
     leg_half_z = leg_top_z * 0.5
-    left_x = -TABLE_X
-    right_x = TABLE_X
 
     return f"""<mujoco model="bridge_scene">
     <worldbody>
         <!-- left table -->
-        <geom name="table_L_top" type="box" pos="{left_x} 0 {TABLE_TOP_Z}"
+        <geom name="table_L_top" type="box" pos="{TABLE_X_LEFT} 0 {TABLE_TOP_Z}"
               size="{TABLE_TOP_HALF} {TABLE_TOP_HALF_Y} {table_top_thick}"
               rgba="0.55 0.40 0.25 1" contype="1" conaffinity="1"/>
-        <geom name="table_L_leg" type="box" pos="{left_x} 0 {leg_half_z}"
+        <geom name="table_L_leg" type="box" pos="{TABLE_X_LEFT} 0 {leg_half_z}"
               size="{leg_half} {leg_half} {leg_half_z}"
               rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
         <!-- right table -->
-        <geom name="table_R_top" type="box" pos="{right_x} 0 {TABLE_TOP_Z}"
+        <geom name="table_R_top" type="box" pos="{TABLE_X_RIGHT} 0 {TABLE_TOP_Z}"
               size="{TABLE_TOP_HALF} {TABLE_TOP_HALF_Y} {table_top_thick}"
               rgba="0.55 0.40 0.25 1" contype="1" conaffinity="1"/>
-        <geom name="table_R_leg" type="box" pos="{right_x} 0 {leg_half_z}"
+        <geom name="table_R_leg" type="box" pos="{TABLE_X_RIGHT} 0 {leg_half_z}"
               size="{leg_half} {leg_half} {leg_half_z}"
               rgba="0.55 0.40 0.25 1" contype="0" conaffinity="0"/>
         <!-- cable lying across -->
@@ -252,7 +249,7 @@ def main():
     print(f"[grasp] temp arm mjcf: {arm_tmp}")
     print(f"[grasp] temp bridge mjcf: {bridge_tmp}")
     print(f"[grasp] enabled arm contact geoms: {sorted(CONTACT_GEOMS)}")
-    print(f"[grasp] tables at x=±{TABLE_X}, top z={TABLE_TOP_Z}; cable rest z={CABLE_REST_Z}")
+    print(f"[grasp] tables at x={TABLE_X_LEFT} and x={TABLE_X_RIGHT}, top z={TABLE_TOP_Z}; cable rest z={CABLE_REST_Z}")
     gs.init(backend=gs.gpu, precision="32", logging_level="warning")
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(dt=2e-3, substeps=4, substeps_local=4, requires_grad=True),
@@ -263,13 +260,16 @@ def main():
     bridge = scene.add_entity(gs.morphs.MJCF(file=bridge_tmp))
     scene.build()
     scene.reset()
-    # Open the gripper so the cable can slip between fingers from below.
-    # arm dofs: 7 hinges (J1..J7) + 2 finger slides (left, right).
+    # Set arm to manipulation L-pose: J2/J4/J6 bent so palm faces -Z, fingers
+    # point straight down. Sweep-found pose: palm at (0.33, 0, 0.178), finger
+    # tips at z≈0.118, in finger-mid-region grasp range for cable at z≈0.156.
     initial_qpos = torch.zeros(arm.n_dofs, dtype=torch.float32)
+    for i, q in enumerate(ARM_LPOSE_QPOS):
+        initial_qpos[i] = q
     initial_qpos[7] = INITIAL_FINGER_OPEN  # finger_left
     initial_qpos[8] = INITIAL_FINGER_OPEN  # finger_right
     arm.set_dofs_position(initial_qpos)
-    print(f"[grasp] arm initial qpos: hinges 0, fingers={INITIAL_FINGER_OPEN}")
+    print(f"[grasp] arm L-pose qpos[0..6]={list(ARM_LPOSE_QPOS)}, fingers={INITIAL_FINGER_OPEN}")
     graph_cleanup = None
     cleanup_name = "torch.cuda.empty_cache()"
     for name in ("reset_grad", "reset_grad_state", "clear_grad", "zero_grad", "_reset_grad"):
