@@ -35,17 +35,17 @@ CONTACT_GEOMS = {
 # wraps cable from both sides; lift phase (J2/J4/J6 all -2.0 rad/s) raises
 # palm by ~0.06m, dragging cable up off the tables — true vertical lift.
 ARM_LPOSE_QPOS = (0.0, 0.5, 0.0, 0.94, 0.0, 1.60, 0.0)  # 7 hinges; finger qpos set separately
-TABLE_X_LEFT = 0.10           # left table center  (cable spans 0.10..0.55)
-TABLE_X_RIGHT = 0.55          # right table center
+TABLE_X_LEFT = 0.18           # left table center  (cable spans 0.16..0.40, palm at 0.33 is right above mid)
+TABLE_X_RIGHT = 0.48          # right table center
 TABLE_TOP_Z = 0.14
 TABLE_TOP_HALF = 0.04
 TABLE_TOP_HALF_Y = 0.05
 TABLE_TOP_THICK = 0.01
 TABLE_LEG_HALF = 0.025
 CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.156, just above table
-CABLE_SPACING = 0.040
-N_CABLE_SEG = 12
-INITIAL_FINGER_OPEN = 0.005   # finger qpos start; with default finger_center_y=0.046 → finger box centers at y=±0.041
+CABLE_SPACING = 0.022         # equals seg_len so capsule heads touch — looks continuous
+N_CABLE_SEG = 16              # total length 15*0.022 = 0.330m > table gap 0.30m, rests on both
+INITIAL_FINGER_OPEN = 0.005
 
 APPROACH_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # arm idle in L-pose, cable settles
 CLOSE_QVEL    = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5, 1.5]   # finger close hard: q saturates at 0.04, fingers genuinely contact cable
@@ -97,14 +97,14 @@ def _make_bridge_scene_mjcf() -> str:
             bodies_open.append(
                 f'<body name="B{i}" pos="{x0} 0 {z0}">\n'
                 f'  <freejoint/>\n'
-                f'  <geom type="capsule" euler="0 90 0" size="0.005 {halflen}" '
+                f'  <geom type="capsule" euler="0 90 0" size="0.010 {halflen}" '
                 f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         else:
             bodies_open.append(
                 f'<body name="B{i}" pos="{spacing} 0 0">\n'
                 f'  <joint type="ball" damping="0.01" armature="0.001"/>\n'
-                f'  <geom type="capsule" euler="0 90 0" size="0.005 {halflen}" '
+                f'  <geom type="capsule" euler="0 90 0" size="0.010 {halflen}" '
                 f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         bodies_close.append("</body>")
@@ -150,6 +150,24 @@ def _enable_arm_contact_geoms(arm_mjcf: str) -> str:
     missing = CONTACT_GEOMS - enabled
     if missing:
         raise ValueError(f"missing expected contact geoms: {sorted(missing)}")
+    return ET.tostring(root, encoding="unicode") + "\n"
+
+def _grayscale_arm_geoms(arm_mjcf: str) -> str:
+    """Recolor every arm capsule/box to a uniform industrial gray for video clarity.
+    Preserves the bright red TCP marker and the ee_palm box (slightly darker)."""
+    root = ET.fromstring(arm_mjcf)
+    for geom in root.iter("geom"):
+        name = geom.get("name") or ""
+        if name == "tcp_marker":
+            continue  # keep red
+        if name.startswith("L") and name.endswith("_capsule"):
+            geom.set("rgba", "0.72 0.72 0.72 1")
+        elif name == "palm_box":
+            geom.set("rgba", "0.45 0.45 0.45 1")
+        elif name == "arm_base_box":
+            geom.set("rgba", "0.18 0.18 0.18 1")
+        elif name in ("finger_left_box", "finger_right_box"):
+            geom.set("rgba", "0.55 0.55 0.55 1")
     return ET.tostring(root, encoding="unicode") + "\n"
 
 def _write_temp_mjcf(prefix: str, mjcf_text: str) -> str:
