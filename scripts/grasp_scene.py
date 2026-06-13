@@ -30,9 +30,10 @@ CONTACT_GEOMS = {
     "finger_right_box",
 }
 APPROACH_QVEL = [0.0, 0.05, 0.0, -0.03, 0.0, 0.02, 0.0, 0.0, 0.0]
-CLOSE_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.03, -0.03]
+# finger slide joints: positive q closes (per make_arm_mjcf axes "0 -1 0" / "0 1 0").
+CLOSE_QVEL = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.03]
 LIFT_QVEL = [0.0, -0.10, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-TARGET_QVEL = [0.0] * 7 + [-0.03, -0.03]
+TARGET_QVEL = [0.0] * 7 + [0.03, 0.03]
 
 def gpu_mem_mb():
     """Process-level GPU memory in MB via nvidia-smi (sees Taichi too)."""
@@ -58,10 +59,18 @@ def fmt_mb(value):
     return "None" if value is None else f"{value:.1f}"
 
 def _move_cable_anchor(cable_mjcf: str, x: float, y: float, z: float) -> str:
-    return cable_mjcf.replace(
+    """Move BOTH the freejoint root B0 (where the chain actually hangs) and
+    the sibling anchor marker. The anchor body is just a visual+weld target;
+    the chain physically lives on B0's freejoint."""
+    out = cable_mjcf.replace(
         '<body name="anchor" pos="0 0 1.07">',
-        f'<body name="anchor" pos="{x} {y} {z}">',
+        f'<body name="anchor" pos="{x} {y} {z + 0.07}">',
     )
+    out = out.replace(
+        '<body name="B0" pos="0 0 1.0">',
+        f'<body name="B0" pos="{x} {y} {z}">',
+    )
+    return out
 
 def _enable_arm_contact_geoms(arm_mjcf: str) -> str:
     root = ET.fromstring(arm_mjcf)

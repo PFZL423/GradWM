@@ -402,7 +402,7 @@ def main():
             f"[VERDICT] FAIL  {SCRIPT_NAME}: warmup status={warmup['status']} "
             f"grad_nan={warmup['nan_count']}/{horizon}  {reason}"
         )
-        return 0
+        return 1
 
     reason = "arm+rope contact warmup backward did not complete cleanly"
     write_verdict(
