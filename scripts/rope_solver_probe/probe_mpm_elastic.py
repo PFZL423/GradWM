@@ -40,18 +40,18 @@ CSV_FIELDS = [
     "grad_status",
 ]
 
-ROPE_LEN = 0.30
-ROPE_SIZE = (0.30, 0.02, 0.02)
-TABLE_X = 0.20
+ROPE_LEN = 0.45
+ROPE_SIZE = (ROPE_LEN, 0.012, 0.012)
+TABLE_X = 0.30                              # tables further apart so the longer rope spans them
 TABLE_TOP_Z = 0.14
 TABLE_SIZE = (0.11, 0.10, 0.02)
 ROPE_CENTER_Z = TABLE_TOP_Z + ROPE_SIZE[2] * 0.5 + 0.004
 FINGER_SIZE = (0.04, 0.02, 0.02)
 FINGER_START = (0.0, 0.0, ROPE_CENTER_Z + ROPE_SIZE[2] * 0.5 + FINGER_SIZE[2] * 0.5 + 0.001)
-PUSH_QVEL = (0.0, 0.0, -0.05)
+PUSH_QVEL = (0.0, 0.0, -0.02)               # gentler push so deformation has time to develop
 BACKWARD_HORIZON = 20
-N_SETTLE = 30
-N_PUSH = 30
+N_SETTLE = 60
+N_PUSH = 80
 FPS = 20
 
 
@@ -191,16 +191,16 @@ def build_scene():
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(dt=2e-3, substeps=10, requires_grad=True),
         mpm_options=gs.options.MPMOptions(
-            lower_bound=(-0.4, -0.1, -0.05),
-            upper_bound=(0.4, 0.1, 0.40),
-            grid_density=128,         # default 64; bumped to 128 for better thin-geom resolution. 200 caused backward NaN.
+            lower_bound=(-0.55, -0.10, -0.05),
+            upper_bound=(0.55, 0.10, 0.50),
+            grid_density=128,         # default 64; bumped to 128 for thin-geom resolution. 200 caused backward NaN.
             # NB: enable_CPIC=True would help thin-object coupling but is incompatible with requires_grad in 1.1.1.
         ),
         show_viewer=False,
     )
     add_tables(scene)
     rope = scene.add_entity(
-        material=gs.materials.MPM.Elastic(rho=200),
+        material=gs.materials.MPM.Elastic(rho=100, E=2e2),  # very soft (E=200 vs default 3e5) so gravity sag is visible mid-span
         morph=gs.morphs.Box(pos=(0.0, 0.0, ROPE_CENTER_Z), size=ROPE_SIZE),
         surface=gs.surfaces.Default(color=(0.86, 0.62, 0.20, 1.0)),
         vis_mode="particle",
