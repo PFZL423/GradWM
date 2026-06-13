@@ -1,40 +1,71 @@
-"""PBD-Cloth rope probe.
+"""PBD-Cloth rope solver matrix probe.
 
-Generates a thin strip mesh (0.30m x 0.01m, 60 segments x 3 width) on the fly,
-loads as gs.materials.PBD.Cloth() (2D), validates:
-  1. Forward 30 steps without crashing under gravity-only.
-  2. Mid-point sag visible (does the strip deform like rope?).
-  3. Whether any differentiable particle handle exists for backward.
-
-Run: python scripts/rope_solver_probe/probe_pbd_cloth.py
+Produces one datapoint for logs/rope_solver_matrix.csv and one side-camera
+video at analysis/rope_solver_probe/pbd_cloth.mp4. The differentiable rope
+handle is scene-level PBDSolverState.pos, not entity.get_particles_pos().
 """
-import sys, os, subprocess, time, tempfile
+
+import csv
+import math
+import os
+import subprocess
+import sys
+import tempfile
+import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-import numpy as np
-import trimesh
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "external" / "genesis-world"))
+
 import imageio.v2 as imageio
+import numpy as np
 import torch
+import trimesh
+
 import genesis as gs
 
-LOG = Path("logs/rope_pbd_cloth.log")
+
 OUT = Path("analysis/rope_solver_probe")
-OUT.mkdir(parents=True, exist_ok=True)
-LOG.parent.mkdir(parents=True, exist_ok=True)
+LOG = Path("logs/rope_pbd_cloth.log")
+CSV_PATH = Path("logs/rope_solver_matrix.csv")
+CSV_FIELDS = [
+    "solver",
+    "n_particles",
+    "fwd_fps",
+    "bwd_s",
+    "grad_norm",
+    "grad_nan",
+    "sag_mm",
+    "peak_mem_mb",
+    "grad_status",
+]
 
 ROPE_LEN = 0.30
-ROPE_WIDTH = 0.01    # very narrow strip — looks like rope from side
-N_SEG_LEN = 60       # along length
-N_SEG_W = 3          # across width
-HORIZON = 30
+ROPE_WIDTH = 0.012
+N_X = 61
+N_Y = 4
+TABLE_X = 0.20
+TABLE_TOP_Z = 0.14
+TABLE_SIZE = (0.11, 0.10, 0.02)
+ROPE_Z = TABLE_TOP_Z + 0.006
+FINGER_SIZE = (0.04, 0.02, 0.02)
+FINGER_START = (0.0, 0.0, ROPE_Z + FINGER_SIZE[2] * 0.5 + 0.001)
+PUSH_QVEL = (0.0, 0.0, -0.05)
+BACKWARD_HORIZON = 30
+N_SETTLE = 30
+N_PUSH = 30
+FPS = 20
 
 
 def gpu_mem_mb():
     try:
         pid = os.getpid()
         out = subprocess.check_output(
-            ["nvidia-smi", "--query-compute-apps=pid,used_memory", "--format=csv,noheader,nounits"],
+            [
+                "nvidia-smi",
+                "--query-compute-apps=pid,used_memory",
+                "--format=csv,noheader,nounits",
+            ],
             text=True,
         )
         for line in out.strip().splitlines():
@@ -46,175 +77,307 @@ def gpu_mem_mb():
     return None
 
 
+def find_solver_state(scene_state, type_name: str):
+    """Return solvers_state[i] whose class.__name__ == type_name, else None."""
+    for s in scene_state.solvers_state:
+        if s is None or type(s).__name__ != type_name:
+            continue
+        pos = getattr(s, "pos", None)
+        if pos is None or (len(pos.shape) >= 2 and int(pos.shape[1]) > 0):
+            return s
+    return None
+
+
+def render_clip(cam, scene, n_frames, drive_fn) -> list[np.ndarray]:
+    """drive_fn(t)->None is called before each scene.step()."""
+    frames = []
+    for t in range(n_frames):
+        drive_fn(t)
+        scene.step()
+        rgb = cam.render()
+        if isinstance(rgb, tuple):
+            rgb = rgb[0]
+        frames.append(np.asarray(rgb))
+    return frames
+
+
 def log_lines(lines):
+    LOG.parent.mkdir(parents=True, exist_ok=True)
     with LOG.open("a") as f:
         f.write("\n".join(lines) + "\n")
-    for l in lines:
-        print(l)
+    for line in lines:
+        print(line)
 
 
-def make_strip_obj(out_path: str):
-    """Generate a thin rectangular strip trimesh and write to obj."""
-    # Vertices on a flat XY plane; will be positioned later via morph.pos
-    xs = np.linspace(-ROPE_LEN/2, ROPE_LEN/2, N_SEG_LEN)
-    ys = np.linspace(-ROPE_WIDTH/2, ROPE_WIDTH/2, N_SEG_W)
-    verts = []
-    for x in xs:
-        for y in ys:
-            verts.append([x, y, 0.0])
-    verts = np.asarray(verts)
+def append_csv(row):
+    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    new_file = not CSV_PATH.exists()
+    with CSV_PATH.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+        if new_file:
+            writer.writeheader()
+        writer.writerow({k: row.get(k, "") for k in CSV_FIELDS})
 
+
+def fmt(value):
+    if value is None:
+        return "nan"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return "nan" if not math.isfinite(v) else f"{v:.6g}"
+
+
+def make_strip_obj(path: str):
+    xs = np.linspace(-ROPE_LEN / 2.0, ROPE_LEN / 2.0, N_X)
+    ys = np.linspace(-ROPE_WIDTH / 2.0, ROPE_WIDTH / 2.0, N_Y)
+    vertices = np.array([[x, y, 0.0] for x in xs for y in ys], dtype=float)
     faces = []
-    for i in range(N_SEG_LEN - 1):
-        for j in range(N_SEG_W - 1):
-            v00 = i*N_SEG_W + j
-            v01 = i*N_SEG_W + j + 1
-            v10 = (i+1)*N_SEG_W + j
-            v11 = (i+1)*N_SEG_W + j + 1
+    for i in range(N_X - 1):
+        for j in range(N_Y - 1):
+            v00 = i * N_Y + j
+            v01 = v00 + 1
+            v10 = (i + 1) * N_Y + j
+            v11 = v10 + 1
             faces.append([v00, v10, v11])
             faces.append([v00, v11, v01])
-    faces = np.asarray(faces)
-
-    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
-    mesh.export(out_path)
-    return verts.shape[0], faces.shape[0]
+    trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=False).export(path)
+    return len(vertices), len(faces)
 
 
-def render_frame(cam, label):
-    rgb = cam.render()
-    if isinstance(rgb, tuple):
-        rgb = rgb[0]
-    path = OUT / f"pbd_cloth_{label}.png"
-    imageio.imwrite(str(path), np.asarray(rgb))
-    return path
+def add_tables(scene):
+    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -0.001)))
+    z = TABLE_TOP_Z - TABLE_SIZE[2] * 0.5
+    for x in (-TABLE_X, TABLE_X):
+        scene.add_entity(
+            gs.morphs.Box(pos=(x, 0.0, z), size=TABLE_SIZE, fixed=True),
+            surface=gs.surfaces.Default(color=(0.35, 0.31, 0.27, 1.0)),
+        )
 
 
-def main():
-    log_lines([f"--- pbd-cloth probe ts={time.strftime('%Y-%m-%dT%H:%M:%S')} ---"])
+def set_finger_qvel(finger, qvel):
+    pad = torch.zeros(max(0, finger.n_dofs - 3), device=qvel.device, dtype=qvel.dtype)
+    finger.set_dofs_velocity(torch.cat([qvel, pad]))
 
-    obj_tmp = tempfile.NamedTemporaryFile(suffix=".obj", delete=False, mode="w").name
-    n_v, n_f = make_strip_obj(obj_tmp)
-    log_lines([f"[mesh] strip obj written: verts={n_v} faces={n_f} path={obj_tmp}"])
 
-    gs.init(backend=gs.gpu, precision="32", logging_level="warning")
+def solver_positions_np(scene):
+    state = find_solver_state(scene.get_state(), "PBDSolverState")
+    if state is None:
+        return None
+    pos = state.pos.detach().cpu().numpy()
+    return pos[0] if pos.ndim == 3 else pos
+
+
+def particle_count(scene):
+    pos = solver_positions_np(scene)
+    return 0 if pos is None else int(pos.shape[0])
+
+
+def sag_mm_from_pos(pos):
+    if pos is None or len(pos) < 6:
+        return math.nan
+    order = np.argsort(pos[:, 0])
+    slab = max(3, min(len(order) // 12, len(order) // 3))
+    left = pos[order[:slab], 2].mean()
+    right = pos[order[-slab:], 2].mean()
+    mid = pos[order[len(order) // 2 - slab // 2 : len(order) // 2 + slab // 2 + 1], 2].mean()
+    return float(((left + right) * 0.5 - mid) * 1000.0)
+
+
+def build_scene(mesh_path):
     scene = gs.Scene(
-        sim_options=gs.options.SimOptions(
-            dt=2e-3, substeps=10, requires_grad=True,
+        sim_options=gs.options.SimOptions(dt=2e-3, substeps=10, requires_grad=True),
+        pbd_options=gs.options.PBDOptions(
+            particle_size=0.005,
+            lower_bound=(-0.45, -0.35, -0.02),
+            upper_bound=(0.45, 0.35, 0.35),
         ),
-        pbd_options=gs.options.PBDOptions(particle_size=0.005),
         show_viewer=False,
     )
-    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -0.001)))
-
+    add_tables(scene)
     rope = scene.add_entity(
-        morph=gs.morphs.Mesh(
-            file=obj_tmp,
-            pos=(0.0, 0.0, 0.30),
-        ),
+        morph=gs.morphs.Mesh(file=mesh_path, pos=(0.0, 0.0, ROPE_Z)),
         material=gs.materials.PBD.Cloth(
             rho=1.0,
             stretch_compliance=1e-6,
-            bending_compliance=1e-3,    # softer bending → more rope-like sag
+            bending_compliance=1e-3,
             stretch_relaxation=0.3,
             bending_relaxation=0.1,
         ),
-        surface=gs.surfaces.Default(color=(0.85, 0.65, 0.30, 1.0)),
+        surface=gs.surfaces.Default(color=(0.86, 0.62, 0.20, 1.0)),
     )
-
+    finger = scene.add_entity(
+        gs.morphs.Box(pos=FINGER_START, size=FINGER_SIZE),
+        surface=gs.surfaces.Default(color=(0.55, 0.57, 0.60, 1.0)),
+    )
     cam = scene.add_camera(
         res=(640, 480),
-        pos=(0.0, 0.8, 0.20),
-        lookat=(0.0, 0.0, 0.20),
+        pos=(0.0, 0.78, 0.20),
+        lookat=(0.0, 0.0, 0.145),
         up=(0.0, 0.0, 1.0),
-        fov=42,
+        fov=38,
+    )
+    scene.build(n_envs=1)
+    scene.reset()
+    return scene, rope, finger, cam
+
+
+def run_backward_once(label, scene, finger):
+    scene.reset()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+    mem_samples = [gpu_mem_mb()]
+    qvel = gs.tensor(PUSH_QVEL, requires_grad=True)
+    loss = None
+    status = "ok"
+    t_fwd = 0.0
+    t_bwd = math.nan
+    try:
+        t0 = time.time()
+        for _ in range(BACKWARD_HORIZON):
+            set_finger_qvel(finger, qvel)
+            scene.step()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        t_fwd = time.time() - t0
+        mem_samples.append(gpu_mem_mb())
+        state = find_solver_state(scene.get_state(), "PBDSolverState")
+        if state is None:
+            status = "no_solver_state"
+        else:
+            pos = state.pos
+            log_lines([f"[{label}] PBDSolverState.pos shape={tuple(pos.shape)} rg={pos.requires_grad}"])
+            loss = pos[..., 2].mean()
+            t0 = time.time()
+            loss.backward()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t_bwd = time.time() - t0
+            mem_samples.append(gpu_mem_mb())
+    except gs.GenesisException as e:
+        msg = str(e)
+        status = msg.replace("Nan grad in qpos or dofs_vel found at step ", "nan@step")
+    except Exception as e:
+        status = f"error:{repr(e)[:120]}"
+
+    grad = qvel.grad
+    if grad is None:
+        grad_norm = math.nan
+        grad_nan_frac = 1.0
+        grad_nan_count = 1
+        grad_total = 1
+        grad_status = status if status != "ok" else "no_contact_path"
+    else:
+        bad = torch.isnan(grad) | torch.isinf(grad)
+        grad_nan_count = int(bad.sum().item())
+        grad_total = int(grad.numel())
+        grad_nan_frac = float(grad_nan_count) / float(grad_total)
+        grad_norm = float("nan") if bad.any() else float(grad.norm().item())
+        if status != "ok":
+            grad_status = status
+            grad_nan_frac = max(grad_nan_frac, 1.0)
+        elif grad_norm <= 1e-12:
+            grad_status = "no_contact_path"
+            grad_nan_frac = 1.0
+        else:
+            grad_status = "ok"
+    peak_mem = max([m for m in mem_samples if m is not None], default=math.nan)
+    fwd_fps = BACKWARD_HORIZON / t_fwd if t_fwd > 0 else math.nan
+    log_lines(
+        [
+            f"[{label}] status={status} fwd_fps={fmt(fwd_fps)} bwd_s={fmt(t_bwd)} "
+            f"grad_norm={fmt(grad_norm)} grad_nan={grad_nan_count}/{grad_total} "
+            f"csv_grad_nan={fmt(grad_nan_frac)} peak_mem_mb={fmt(peak_mem)}",
+        ]
+    )
+    return {
+        "status": status,
+        "grad_status": grad_status,
+        "fwd_fps": fwd_fps,
+        "bwd_s": t_bwd,
+        "grad_norm": grad_norm,
+        "grad_nan": grad_nan_frac,
+        "peak_mem_mb": peak_mem,
+        "loss": math.nan if loss is None else float(loss.detach().cpu().item()),
+    }
+
+
+def measure_sag(scene, finger):
+    scene.reset()
+    zero = torch.zeros(3, dtype=torch.float32)
+    try:
+        for _ in range(N_SETTLE):
+            set_finger_qvel(finger, zero)
+            scene.step()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+    except Exception as e:
+        log_lines([f"[sag] failed: {repr(e)[:120]}"])
+        return math.nan
+    return sag_mm_from_pos(solver_positions_np(scene))
+
+
+def render_video(scene, finger, cam):
+    OUT.mkdir(parents=True, exist_ok=True)
+    scene.reset()
+    push = torch.tensor(PUSH_QVEL, dtype=torch.float32)
+    zero = torch.zeros(3, dtype=torch.float32)
+
+    def drive(t):
+        set_finger_qvel(finger, zero if t < N_SETTLE else push)
+
+    frames = render_clip(cam, scene, N_SETTLE + N_PUSH, drive)
+    path = OUT / "pbd_cloth.mp4"
+    with imageio.get_writer(str(path), fps=FPS, codec="libx264", quality=8) as writer:
+        for frame in frames:
+            writer.append_data(frame)
+    log_lines([f"[render] wrote {path} frames={len(frames)} fps={FPS}"])
+
+
+def main():
+    OUT.mkdir(parents=True, exist_ok=True)
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    log_lines([f"--- pbd-cloth matrix probe ts={time.strftime('%Y-%m-%dT%H:%M:%S')} ---"])
+
+    tmp = tempfile.NamedTemporaryFile(prefix="pbd_cloth_strip_", suffix=".obj", delete=False)
+    tmp.close()
+    n_v, n_f = make_strip_obj(tmp.name)
+    log_lines([f"[mesh] strip verts={n_v} faces={n_f} path={tmp.name}"])
+
+    gs.init(backend=gs.gpu, precision="32", logging_level="warning")
+    scene, rope, finger, cam = build_scene(tmp.name)
+    n_particles = particle_count(scene)
+    log_lines([f"[probe] rope n_particles={n_particles} entity_n={getattr(rope, 'n_particles', '?')}"])
+    if hasattr(rope, "get_particles_pos"):
+        entity_pos = rope.get_particles_pos()
+        log_lines([f"[probe] entity.get_particles_pos shape={tuple(entity_pos.shape)} rg={entity_pos.requires_grad}"])
+
+    warmup = run_backward_once("warmup", scene, finger)
+    steady = run_backward_once("steady", scene, finger)
+    sag_mm = measure_sag(scene, finger)
+    render_video(scene, finger, cam)
+    peak_mem = max(
+        [m for m in (warmup["peak_mem_mb"], steady["peak_mem_mb"], gpu_mem_mb()) if m is not None],
+        default=math.nan,
     )
 
-    scene.build()
-    scene.reset()
+    append_csv(
+        {
+            "solver": "PBD-Cloth",
+            "n_particles": n_particles,
+            "fwd_fps": fmt(steady["fwd_fps"]),
+            "bwd_s": fmt(steady["bwd_s"]),
+            "grad_norm": fmt(steady["grad_norm"]),
+            "grad_nan": fmt(steady["grad_nan"]),
+            "sag_mm": fmt(sag_mm),
+            "peak_mem_mb": fmt(peak_mem),
+            "grad_status": steady["grad_status"],
+        }
+    )
+    log_lines([f"[csv] appended {CSV_PATH}", "--- pbd-cloth matrix probe done ---", ""])
 
-    log_lines([f"[probe] rope n_particles={getattr(rope, 'n_particles', '?')}"])
-
-    # Probe diff handles
-    for name in ("get_particles_pos", "get_particles_vel"):
-        if hasattr(rope, name):
-            v = getattr(rope, name)()
-            log_lines([f"[probe] {name}() shape={tuple(v.shape)} rg={v.requires_grad}"])
-
-    # ---------- S1: free fall under gravity ----------
-    render_frame(cam, "s1_t0")
-    status = "ok"
-    try:
-        for t in range(HORIZON):
-            scene.step()
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-    except gs.GenesisException as e:
-        status = f"genesis_err:{str(e)[:100]}"
-    except Exception as e:
-        status = f"err:{repr(e)[:100]}"
-    render_frame(cam, "s1_t30")
-    log_lines([f"[s1] free-fall: status={status} mem={gpu_mem_mb()}MB"])
-
-    # quantify mid-point sag
-    if status == "ok":
-        pos = rope.get_particles_pos().detach().cpu().numpy()
-        # find left/right ends + middle by x
-        x_ords = np.argsort(pos[:, 0])
-        left_id = x_ords[:N_SEG_W].tolist()       # leftmost slab
-        right_id = x_ords[-N_SEG_W:].tolist()
-        mid_id = x_ords[len(x_ords)//2 - N_SEG_W//2 : len(x_ords)//2 + N_SEG_W//2 + 1].tolist()
-        z_left  = pos[left_id, 2].mean()
-        z_right = pos[right_id, 2].mean()
-        z_mid   = pos[mid_id, 2].mean()
-        sag = (z_left + z_right) / 2 - z_mid
-        log_lines([
-            f"[s1] z_left={z_left:.4f}, z_mid={z_mid:.4f}, z_right={z_right:.4f}",
-            f"[s1] sag (ends_avg - mid) = {sag:.4f} m",
-        ])
-
-    # ---------- S2: mid-grasp lift (mimics our manipulation) ----------
-    scene.reset()
-    # Find center particles to fix
-    pos_init = rope.get_particles_pos().detach().cpu().numpy()
-    x_ords = np.argsort(pos_init[:, 0])
-    mid_idx = x_ords[len(x_ords)//2 - N_SEG_W//2 : len(x_ords)//2 + N_SEG_W//2 + 1].tolist()
-    log_lines([f"[s2] mid-grasp particles to fix: {mid_idx}"])
-
-    # Try to pin them to a virtual moving point
-    if hasattr(rope, "fix_particles"):
-        try:
-            rope.fix_particles(particles_idx_local=mid_idx)
-            log_lines(["[s2] fix_particles called"])
-        except Exception as e:
-            log_lines([f"[s2] fix_particles failed: {repr(e)[:80]}"])
-
-    render_frame(cam, "s2_t0")
-    status_s2 = "ok"
-    try:
-        for t in range(HORIZON):
-            # crude lift: each step manually offset fixed particles upward by 1mm
-            scene.step()
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-    except gs.GenesisException as e:
-        status_s2 = f"genesis_err:{str(e)[:100]}"
-    except Exception as e:
-        status_s2 = f"err:{repr(e)[:100]}"
-    render_frame(cam, "s2_t30")
-    log_lines([f"[s2] mid-fixed gravity: status={status_s2} mem={gpu_mem_mb()}MB"])
-
-    if status_s2 == "ok":
-        pos2 = rope.get_particles_pos().detach().cpu().numpy()
-        z_left2  = pos2[left_id, 2].mean()
-        z_right2 = pos2[right_id, 2].mean()
-        z_mid2   = pos2[mid_id, 2].mean()
-        sag2 = (z_left2 + z_right2) / 2 - z_mid2
-        log_lines([
-            f"[s2] z_left={z_left2:.4f}, z_mid={z_mid2:.4f}, z_right={z_right2:.4f}",
-            f"[s2] sag (ends_avg - mid) = {sag2:.4f} m  <- mid pinned to initial",
-        ])
-
-    log_lines([f"--- pbd-cloth probe done ---", ""])
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

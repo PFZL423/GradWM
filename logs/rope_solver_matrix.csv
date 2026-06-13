@@ -1,0 +1,8 @@
+solver,n_particles,fwd_fps,bwd_s,grad_norm,grad_nan,sag_mm,peak_mem_mb,grad_status
+PBD-Cloth,244,116.289,0.697501,0,1,35.0896,711,no_contact_path
+FEM-Elastic,1059,314.671,nan,nan,1,nan,443,"error:AttributeError(""'FEMEntity' object has no attribute 'collect_output_grads'"")"
+MPM-Elastic,99,145.81,21.2895,0.378947,0,2.39865,1689,ok
+MPM-Elastic,99,152.01,20.8566,0.378868,0,2.38927,1687,ok
+MPM-Elastic,99,150.423,21.7602,0.407932,0,1.49456,1687,ok
+MPM-Elastic,3581,143.176,97.7791,nan,1,0,4633,ok
+MPM-Elastic,852,143.865,26.6918,0.405546,0,-0.276402,1993,ok

@@ -1,8 +1,8 @@
-"""FEM-Elastic rope solver matrix probe.
+"""MPM-Elastic rope solver matrix probe.
 
-Uses a generated thin prism mesh rather than Box auto-tetrahedralization,
-because Genesis 1.1.1 sparsifies thin Box FEM bodies too aggressively. The
-differentiable rope handle is scene-level FEMSolverState.pos.
+Produces one datapoint for logs/rope_solver_matrix.csv and one side-camera
+video at analysis/rope_solver_probe/mpm_elastic.mp4. MPM backward uses horizon
+20 because first contact-aware backward can be very slow on RTX 4060-class GPUs.
 """
 
 import csv
@@ -26,7 +26,7 @@ import genesis as gs
 
 
 OUT = Path("analysis/rope_solver_probe")
-LOG = Path("logs/rope_fem_elastic.log")
+LOG = Path("logs/rope_mpm_elastic.log")
 CSV_PATH = Path("logs/rope_solver_matrix.csv")
 CSV_FIELDS = [
     "solver",
@@ -41,19 +41,18 @@ CSV_FIELDS = [
 ]
 
 ROPE_LEN = 0.30
-ROPE_SIDE = 0.015
+ROPE_SIZE = (0.30, 0.02, 0.02)
 TABLE_X = 0.20
 TABLE_TOP_Z = 0.14
 TABLE_SIZE = (0.11, 0.10, 0.02)
-ROPE_CENTER_Z = TABLE_TOP_Z + ROPE_SIDE * 0.5 + 0.004
+ROPE_CENTER_Z = TABLE_TOP_Z + ROPE_SIZE[2] * 0.5 + 0.004
 FINGER_SIZE = (0.04, 0.02, 0.02)
-FINGER_START = (0.0, 0.0, ROPE_CENTER_Z + ROPE_SIDE * 0.5 + FINGER_SIZE[2] * 0.5 + 0.001)
+FINGER_START = (0.0, 0.0, ROPE_CENTER_Z + ROPE_SIZE[2] * 0.5 + FINGER_SIZE[2] * 0.5 + 0.001)
 PUSH_QVEL = (0.0, 0.0, -0.05)
-BACKWARD_HORIZON = 30
+BACKWARD_HORIZON = 20
 N_SETTLE = 30
 N_PUSH = 30
 FPS = 20
-MIN_VERTICES = 50
 
 
 def gpu_mem_mb():
@@ -128,84 +127,53 @@ def fmt(value):
     return "nan" if not math.isfinite(v) else f"{v:.6g}"
 
 
-def make_prism_obj(path: str):
-    xs = np.linspace(-ROPE_LEN / 2.0, ROPE_LEN / 2.0, 41)
-    ys = np.linspace(-ROPE_SIDE / 2.0, ROPE_SIDE / 2.0, 4)
-    zs = np.linspace(-ROPE_SIDE / 2.0, ROPE_SIDE / 2.0, 4)
-    vertices = []
-    index = {}
-    faces = []
-
-    def vid(coord):
-        key = tuple(round(float(c), 9) for c in coord)
-        if key not in index:
-            index[key] = len(vertices)
-            vertices.append(list(key))
-        return index[key]
-
-    def add_face(axis, const, u_axis, u_vals, v_axis, v_vals, reverse):
-        grid = []
-        for u in u_vals:
-            row = []
-            for v in v_vals:
-                coord = [0.0, 0.0, 0.0]
-                coord[axis] = const
-                coord[u_axis] = float(u)
-                coord[v_axis] = float(v)
-                row.append(vid(coord))
-            grid.append(row)
-        for i in range(len(u_vals) - 1):
-            for j in range(len(v_vals) - 1):
-                v00 = grid[i][j]
-                v01 = grid[i][j + 1]
-                v10 = grid[i + 1][j]
-                v11 = grid[i + 1][j + 1]
-                if reverse:
-                    faces.append([v00, v11, v10])
-                    faces.append([v00, v01, v11])
-                else:
-                    faces.append([v00, v10, v11])
-                    faces.append([v00, v11, v01])
-
-    add_face(2, ROPE_SIDE / 2.0, 0, xs, 1, ys, reverse=False)  # +z
-    add_face(2, -ROPE_SIDE / 2.0, 0, xs, 1, ys, reverse=True)  # -z
-    add_face(1, ROPE_SIDE / 2.0, 0, xs, 2, zs, reverse=True)  # +y
-    add_face(1, -ROPE_SIDE / 2.0, 0, xs, 2, zs, reverse=False)  # -y
-    add_face(0, ROPE_LEN / 2.0, 1, ys, 2, zs, reverse=False)  # +x
-    add_face(0, -ROPE_LEN / 2.0, 1, ys, 2, zs, reverse=True)  # -x
-
-    mesh = trimesh.Trimesh(vertices=np.asarray(vertices), faces=np.asarray(faces), process=True)
-    mesh.fix_normals()
-    mesh.export(path)
-    return len(mesh.vertices), len(mesh.faces), bool(mesh.is_watertight)
-
-
 def add_tables(scene):
-    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -0.001)))
+    scene.add_entity(
+        gs.morphs.Plane(pos=(0.0, 0.0, -0.001)),
+        surface=gs.surfaces.Default(color=(0.18, 0.20, 0.25, 1.0)),
+    )
     z = TABLE_TOP_Z - TABLE_SIZE[2] * 0.5
     for x in (-TABLE_X, TABLE_X):
         scene.add_entity(
             gs.morphs.Box(pos=(x, 0.0, z), size=TABLE_SIZE, fixed=True),
-            surface=gs.surfaces.Default(color=(0.35, 0.31, 0.27, 1.0)),
+            surface=gs.surfaces.Default(color=(0.55, 0.40, 0.25, 1.0)),
         )
 
 
 def set_finger_qvel(finger, qvel):
-    pad = torch.zeros(max(0, finger.n_dofs - 3), device=qvel.device, dtype=qvel.dtype)
-    finger.set_dofs_velocity(torch.cat([qvel, pad]))
+    vel = qvel.reshape(1, 3)
+    ang = torch.zeros((1, 3), device=qvel.device, dtype=qvel.dtype)
+    finger.set_velocity(vel=vel, ang=ang)
+
+
+def active_positions(state):
+    pos = state.pos
+    active = getattr(state, "active", None)
+    if active is not None and tuple(active.shape) == tuple(pos.shape[:-1]):
+        return pos[active == 1]
+    return pos.reshape(-1, 3)
 
 
 def solver_positions_np(scene):
-    state = find_solver_state(scene.get_state(), "FEMSolverState")
+    state = find_solver_state(scene.get_state(), "MPMSolverState")
     if state is None:
         return None
     pos = state.pos.detach().cpu().numpy()
-    return pos[0] if pos.ndim == 3 else pos
+    active = getattr(state, "active", None)
+    if active is not None and tuple(active.shape) == tuple(state.pos.shape[:-1]):
+        mask = active.detach().cpu().numpy().astype(bool)
+        return pos[mask]
+    return pos.reshape(-1, 3)
 
 
 def particle_count(scene):
-    pos = solver_positions_np(scene)
-    return 0 if pos is None else int(pos.shape[0])
+    state = find_solver_state(scene.get_state(), "MPMSolverState")
+    if state is None:
+        return 0
+    active = getattr(state, "active", None)
+    if active is not None and tuple(active.shape) == tuple(state.pos.shape[:-1]):
+        return int(active.detach().sum().item())
+    return int(state.pos.shape[1])
 
 
 def sag_mm_from_pos(pos):
@@ -219,82 +187,41 @@ def sag_mm_from_pos(pos):
     return float(((left + right) * 0.5 - mid) * 1000.0)
 
 
-def build_scene(mesh_path, morph_kind, model):
+def build_scene():
     scene = gs.Scene(
-        sim_options=gs.options.SimOptions(dt=2e-3, substeps=4, substeps_local=4, requires_grad=True),
-        fem_options=gs.options.FEMOptions(use_implicit_solver=False),
+        sim_options=gs.options.SimOptions(dt=2e-3, substeps=10, requires_grad=True),
+        mpm_options=gs.options.MPMOptions(
+            lower_bound=(-0.4, -0.1, -0.05),
+            upper_bound=(0.4, 0.1, 0.40),
+            grid_density=128,         # default 64; bumped to 128 for better thin-geom resolution. 200 caused backward NaN.
+            # NB: enable_CPIC=True would help thin-object coupling but is incompatible with requires_grad in 1.1.1.
+        ),
         show_viewer=False,
     )
     add_tables(scene)
-    if morph_kind == "mesh":
-        morph = gs.morphs.Mesh(
-            file=mesh_path,
-            pos=(0.0, 0.0, ROPE_CENTER_Z),
-            maxvolume=2e-7,
-            force_retet=True,
-        )
-    elif morph_kind == "cylinder":
-        morph = gs.morphs.Cylinder(
-            pos=(0.0, 0.0, ROPE_CENTER_Z),
-            radius=ROPE_SIDE * 0.5,
-            height=ROPE_LEN,
-            euler=(0.0, 90.0, 0.0),
-            maxvolume=2e-7,
-            force_retet=True,
-        )
-    else:
-        raise ValueError(morph_kind)
-
     rope = scene.add_entity(
-        morph=morph,
-        material=gs.materials.FEM.Elastic(model=model, E=5e3, nu=0.4, rho=200.0),
+        material=gs.materials.MPM.Elastic(rho=200),
+        morph=gs.morphs.Box(pos=(0.0, 0.0, ROPE_CENTER_Z), size=ROPE_SIZE),
         surface=gs.surfaces.Default(color=(0.86, 0.62, 0.20, 1.0)),
+        vis_mode="particle",
     )
+    finger_obj = tempfile.NamedTemporaryFile(suffix=".obj", delete=False, mode="w").name
+    trimesh.creation.box(extents=FINGER_SIZE).export(finger_obj)
     finger = scene.add_entity(
-        gs.morphs.Box(pos=FINGER_START, size=FINGER_SIZE),
+        material=gs.materials.Tool(friction=8.0),
+        morph=gs.morphs.Mesh(file=finger_obj, pos=FINGER_START, scale=max(FINGER_SIZE)),  # ToolEntity normalizes mesh to unit cube; scale=max_extent → real size
         surface=gs.surfaces.Default(color=(0.55, 0.57, 0.60, 1.0)),
     )
     cam = scene.add_camera(
         res=(640, 480),
-        pos=(0.0, 0.78, 0.20),
-        lookat=(0.0, 0.0, 0.145),
+        pos=(0.0, 1.0, 0.45),
+        lookat=(0.0, 0.0, 0.14),
         up=(0.0, 0.0, 1.0),
-        fov=38,
+        fov=42,
     )
     scene.build(n_envs=1)
     scene.reset()
     return scene, rope, finger, cam
-
-
-def try_build_scene(mesh_path, morph_kind):
-    errors = []
-    for model in ("stable_neohookean", "linear"):
-        try:
-            scene, rope, finger, cam = build_scene(mesh_path, morph_kind, model)
-            n_vertices = particle_count(scene)
-            log_lines([f"[build] morph={morph_kind} model={model} n_vertices={n_vertices}"])
-            return scene, rope, finger, cam, model, n_vertices
-        except Exception as e:
-            errors.append(f"{model}:{repr(e)[:120]}")
-            log_lines([f"[build] morph={morph_kind} model={model} failed: {repr(e)[:120]}"])
-    raise RuntimeError(f"FEM build failed for {morph_kind}: {'; '.join(errors)}")
-
-
-def choose_scene(mesh_path):
-    mesh_scene = try_build_scene(mesh_path, "mesh")
-    if mesh_scene[-1] >= MIN_VERTICES:
-        return (*mesh_scene, "mesh")
-
-    log_lines(
-        [
-            f"[resolution] mesh n_vertices={mesh_scene[-1]} < {MIN_VERTICES}; "
-            "trying Cylinder fallback. Box fallback is intentionally skipped because it is known sparse.",
-        ]
-    )
-    cylinder_scene = try_build_scene(mesh_path, "cylinder")
-    if cylinder_scene[-1] > mesh_scene[-1]:
-        return (*cylinder_scene, "cylinder")
-    return (*mesh_scene, "mesh")
 
 
 def run_backward_once(label, scene, finger):
@@ -317,16 +244,18 @@ def run_backward_once(label, scene, finger):
             torch.cuda.synchronize()
         t_fwd = time.time() - t0
         mem_samples.append(gpu_mem_mb())
-        state = find_solver_state(scene.get_state(), "FEMSolverState")
+        state = find_solver_state(scene.get_state(), "MPMSolverState")
         if state is None:
             status = "no_solver_state"
         else:
-            pos = state.pos
-            log_lines([f"[{label}] FEMSolverState.pos shape={tuple(pos.shape)} rg={pos.requires_grad}"])
-            if not pos.requires_grad:
+            pos = active_positions(state)
+            log_lines([f"[{label}] MPMSolverState.pos shape={tuple(state.pos.shape)} rg={state.pos.requires_grad}"])
+            if pos.numel() == 0:
+                status = "no_active_particles"
+            elif not pos.requires_grad:
                 status = "state_pos_rg_false"
             else:
-                loss = pos[..., 2].mean()
+                loss = pos[:, 2].mean()
                 t0 = time.time()
                 loss.backward()
                 if torch.cuda.is_available():
@@ -381,19 +310,6 @@ def run_backward_once(label, scene, finger):
     }
 
 
-def empty_result(status):
-    return {
-        "status": status,
-        "grad_status": status,
-        "fwd_fps": math.nan,
-        "bwd_s": math.nan,
-        "grad_norm": math.nan,
-        "grad_nan": 1.0,
-        "peak_mem_mb": gpu_mem_mb() if gpu_mem_mb() is not None else math.nan,
-        "loss": math.nan,
-    }
-
-
 def measure_sag(scene, finger):
     scene.reset()
     zero = torch.zeros(3, dtype=torch.float32)
@@ -419,7 +335,7 @@ def render_video(scene, finger, cam):
         set_finger_qvel(finger, zero if t < N_SETTLE else push)
 
     frames = render_clip(cam, scene, N_SETTLE + N_PUSH, drive)
-    path = OUT / "fem_elastic.mp4"
+    path = OUT / "mpm_elastic.mp4"
     with imageio.get_writer(str(path), fps=FPS, codec="libx264", quality=8) as writer:
         for frame in frames:
             writer.append_data(frame)
@@ -429,30 +345,15 @@ def render_video(scene, finger, cam):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     LOG.parent.mkdir(parents=True, exist_ok=True)
-    log_lines([f"--- fem-elastic matrix probe ts={time.strftime('%Y-%m-%dT%H:%M:%S')} ---"])
-
-    tmp = tempfile.NamedTemporaryFile(prefix="fem_rope_prism_", suffix=".obj", delete=False)
-    tmp.close()
-    n_v, n_f, watertight = make_prism_obj(tmp.name)
-    log_lines([f"[mesh] prism surface verts={n_v} faces={n_f} watertight={watertight} path={tmp.name}"])
+    log_lines([f"--- mpm-elastic matrix probe ts={time.strftime('%Y-%m-%dT%H:%M:%S')} ---"])
 
     gs.init(backend=gs.gpu, precision="32", logging_level="warning")
-    scene, rope, finger, cam, model, n_particles, morph_kind = choose_scene(tmp.name)
-    log_lines(
-        [
-            f"[probe] selected_morph={morph_kind} model={model} n_vertices={n_particles} "
-            f"entity_n={getattr(rope, 'n_vertices', '?')}",
-        ]
-    )
+    scene, rope, finger, cam = build_scene()
+    n_particles = particle_count(scene)
+    log_lines([f"[probe] rope n_particles={n_particles} entity_n={getattr(rope, 'n_particles', '?')}"])
 
-    if n_particles < MIN_VERTICES:
-        log_lines([f"[resolution] insufficient FEM resolution: n_vertices={n_particles} < {MIN_VERTICES}"])
-        warmup = empty_result("insufficient_resolution")
-        steady = empty_result("insufficient_resolution")
-    else:
-        warmup = run_backward_once("warmup", scene, finger)
-        steady = run_backward_once("steady", scene, finger)
-
+    warmup = run_backward_once("warmup", scene, finger)
+    steady = run_backward_once("steady", scene, finger)
     sag_mm = measure_sag(scene, finger)
     render_video(scene, finger, cam)
     peak_mem = max(
@@ -462,7 +363,7 @@ def main():
 
     append_csv(
         {
-            "solver": "FEM-Elastic",
+            "solver": "MPM-Elastic",
             "n_particles": n_particles,
             "fwd_fps": fmt(steady["fwd_fps"]),
             "bwd_s": fmt(steady["bwd_s"]),
@@ -473,7 +374,7 @@ def main():
             "grad_status": steady["grad_status"],
         }
     )
-    log_lines([f"[csv] appended {CSV_PATH}", "--- fem-elastic matrix probe done ---", ""])
+    log_lines([f"[csv] appended {CSV_PATH}", "--- mpm-elastic matrix probe done ---", ""])
 
 
 if __name__ == "__main__":
