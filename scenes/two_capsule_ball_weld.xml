@@ -1,0 +1,19 @@
+<mujoco model="two_capsule_ball_weld">
+    <worldbody>
+        <body name="anchor" pos="0 0 0.7">
+            <geom type="sphere" size="0.01" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        </body>
+        <body name="B0" pos="0 0 0.5">
+            <freejoint/>
+            <geom type="capsule" size="0.005 0.05" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+            <body name="B1" pos="0 0 -0.105">
+                <joint type="ball" damping="0.01" armature="0.001"/>
+                <geom type="capsule" size="0.005 0.05" mass="0.001" rgba="0.6 0.8 0.4 1"/>
+            </body>
+        </body>
+    </worldbody>
+
+    <equality>
+        <weld body1="B0" body2="anchor"/>
+    </equality>
+</mujoco>

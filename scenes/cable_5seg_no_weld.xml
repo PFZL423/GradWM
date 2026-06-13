@@ -1,0 +1,24 @@
+<mujoco model="cable_5seg_no_weld">
+    <worldbody>
+        <body name="B0" pos="0 0 1.0">
+            <freejoint/>
+            <geom type="capsule" size="0.005 0.025" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+            <body name="B1" pos="0 0 -0.055">
+                <joint type="ball" damping="0.01" armature="0.001"/>
+                <geom type="capsule" size="0.005 0.025" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+                <body name="B2" pos="0 0 -0.055">
+                    <joint type="ball" damping="0.01" armature="0.001"/>
+                    <geom type="capsule" size="0.005 0.025" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+                    <body name="B3" pos="0 0 -0.055">
+                        <joint type="ball" damping="0.01" armature="0.001"/>
+                        <geom type="capsule" size="0.005 0.025" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+                        <body name="B4" pos="0 0 -0.055">
+                            <joint type="ball" damping="0.01" armature="0.001"/>
+                            <geom type="capsule" size="0.005 0.025" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+external/
+logs/*.log
+logs/*.mp4
+logs/*.gif
+logs/*.png
+logs/runs/
+.taichi/
+*.npy
+*.npz
+*.ckpt
+.ipynb_checkpoints/

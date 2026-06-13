@@ -1,0 +1,12 @@
+<mujoco model="two_capsule_ball">
+    <worldbody>
+        <body name="B0" pos="0 0 0.5">
+            <freejoint/>
+            <geom type="capsule" size="0.005 0.05" mass="0.001" rgba="0.8 0.6 0.4 1"/>
+            <body name="B1" pos="0 0 -0.105">
+                <joint type="ball" damping="0.01" armature="0.001"/>
+                <geom type="capsule" size="0.005 0.05" mass="0.001" rgba="0.6 0.8 0.4 1"/>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>
