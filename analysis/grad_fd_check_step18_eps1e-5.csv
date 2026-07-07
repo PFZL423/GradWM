@@ -1,0 +1,2 @@
+step,phase,eps,cos,analytic_norm,numerical_norm,tag
+18,close-onset,1e-05,0.9976029992103577,1.5744754076004028,1.078959345817566,GOOD

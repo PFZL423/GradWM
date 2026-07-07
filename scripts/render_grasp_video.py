@@ -95,15 +95,15 @@ def main():
         arm.set_dofs_velocity(torch.tensor(CLOSE_QVEL, dtype=torch.float32))
         step_and_render()
 
-    # 4) Lift (60 steps) — J2/J4/J6 reverse, palm rises (extended so cable shape evolves visibly)
+    # 4) Lift (60 steps)
     print(f"[render] lift (60 steps)")
     for _ in range(60):
         arm.set_dofs_velocity(torch.tensor(LIFT_QVEL, dtype=torch.float32))
         step_and_render()
 
-    # 5) Hold (80 steps) — arm static, watch cable swing settle / hang shape
-    print(f"[render] hold (80 steps)")
-    for _ in range(80):
+    # 5) Hold (90 steps) — arm static, watch cable swing settle / hang shape
+    print(f"[render] hold (90 steps)")
+    for _ in range(90):
         arm.set_dofs_velocity(torch.zeros(arm.n_dofs, dtype=torch.float32))
         step_and_render()
 

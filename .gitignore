@@ -12,3 +12,14 @@ logs/runs/
 *.npz
 *.ckpt
 .ipynb_checkpoints/
+
+# agent/session memory (local only, not for remote)
+.codex/
+AGENTS.md
+notes/PHASE_1B_LOG.md
+notes/PHASE_*_LOG.md
+
+# video artifacts (local only, too heavy for remote)
+*.mp4
+*.gif
+analysis/rope_sweep/

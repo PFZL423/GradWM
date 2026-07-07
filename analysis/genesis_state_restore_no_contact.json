@@ -1,0 +1,95 @@
+{
+  "description": "Genesis same-process state restore continuation check",
+  "backend": "cpu",
+  "precision": "32",
+  "results": [
+    {
+      "case": "no_contact",
+      "pre_steps": 8,
+      "vx": 0.4,
+      "delta_vx": 0.05,
+      "contact_trace": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "anchor_contact_count": 0,
+      "online_next_contact_count": 0,
+      "restored_anchor_vs_anchor": {
+        "entity_pos_max_abs": 0.0,
+        "entity_qvel_max_abs": 0.0,
+        "qpos_max_abs": 0.0,
+        "dofs_vel_max_abs": 0.0,
+        "dofs_acc_max_abs": 0.0,
+        "links_pos_max_abs": 0.0,
+        "links_quat_max_abs": 0.0,
+        "contact_count_a": 0,
+        "contact_count_b": 0,
+        "contact_count_diff": 0,
+        "max_state_abs": 0.0
+      },
+      "restored_next_vs_online_next": {
+        "entity_pos_max_abs": 0.0,
+        "entity_qvel_max_abs": 0.0,
+        "qpos_max_abs": 0.0,
+        "dofs_vel_max_abs": 0.0,
+        "dofs_acc_max_abs": 0.0,
+        "links_pos_max_abs": 0.0,
+        "links_quat_max_abs": 0.0,
+        "contact_count_a": 0,
+        "contact_count_b": 0,
+        "contact_count_diff": 0,
+        "max_state_abs": 0.0
+      },
+      "perturbed_repeat_vs_repeat": {
+        "entity_pos_max_abs": 0.0,
+        "entity_qvel_max_abs": 0.0,
+        "qpos_max_abs": 0.0,
+        "dofs_vel_max_abs": 0.0,
+        "dofs_acc_max_abs": 0.0,
+        "links_pos_max_abs": 0.0,
+        "links_quat_max_abs": 0.0,
+        "contact_count_a": 0,
+        "contact_count_b": 0,
+        "contact_count_diff": 0,
+        "max_state_abs": 0.0
+      },
+      "perturbed_delta_from_online": {
+        "entity_pos_max_abs": 9.999983012676239e-05,
+        "entity_qvel_max_abs": 0.04999998211860657,
+        "qpos_max_abs": 9.999983012676239e-05,
+        "dofs_vel_max_abs": 0.04999998211860657,
+        "dofs_acc_max_abs": 6.286424536483537e-07,
+        "links_pos_max_abs": 9.999983012676239e-05,
+        "links_quat_max_abs": 0.0,
+        "contact_count_a": 0,
+        "contact_count_b": 0,
+        "contact_count_diff": 0,
+        "max_state_abs": 0.04999998211860657
+      },
+      "cross_process_manual_pickle_restore": {
+        "status": "ok",
+        "restored_next_vs_online_next": {
+          "entity_pos_max_abs": 0.0,
+          "entity_qvel_max_abs": 0.0,
+          "qpos_max_abs": 0.0,
+          "dofs_vel_max_abs": 0.0,
+          "dofs_acc_max_abs": 0.0,
+          "links_pos_max_abs": 0.0,
+          "links_quat_max_abs": 0.0,
+          "contact_count_a": 0,
+          "contact_count_b": 0,
+          "contact_count_diff": 0,
+          "max_state_abs": 0.0
+        },
+        "restored_anchor_contact_count": 0
+      },
+      "serializable_status_after_test": "error:AttributeError:property 'scene' of 'SimState' object has no setter"
+    }
+  ]
+}

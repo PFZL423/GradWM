@@ -46,11 +46,12 @@ CABLE_REST_Z = TABLE_TOP_Z + TABLE_TOP_THICK + 0.006  # 0.156, just above table
 # Rigid cable params: N=40 + damping=0.001 + armature=0.0001 came out as the
 # sweet spot in scripts/rigid_cable_sweep.py — looks like a real continuous
 # rope (sub-cm segment length, smooth catenary), backward NaN-free.
-N_CABLE_SEG = 40
+N_CABLE_SEG = 80
 CABLE_SEG_LEN = 0.020          # capsule cylinder length (excluding hemisphere caps)
-CABLE_SEG_RADIUS = 0.010
-CABLE_DAMPING = 0.001
-CABLE_ARMATURE = 0.0001
+CABLE_SEG_RADIUS = 0.005
+CABLE_DAMPING = 9e-3
+CABLE_ARMATURE = 2e-5
+CABLE_SEG_MASS = 4e-4          # total ~32g across N=80 segments
 CABLE_TOTAL_LEN = 0.30  # absolute cable length; decoupled from table gap. Excess piles up on tabletops, sag depth is set by gap × physics
 INITIAL_FINGER_OPEN = 0.005
 
@@ -108,14 +109,14 @@ def _make_bridge_scene_mjcf() -> str:
                 f'<body name="B{i}" pos="{x0} 0 {z0}">\n'
                 f'  <freejoint/>\n'
                 f'  <geom type="capsule" euler="0 90 0" size="{CABLE_SEG_RADIUS} {halflen}" '
-                f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
+                f'mass="{CABLE_SEG_MASS}" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         else:
             bodies_open.append(
                 f'<body name="B{i}" pos="{spacing} 0 0">\n'
                 f'  <joint type="ball" damping="{CABLE_DAMPING}" armature="{CABLE_ARMATURE}"/>\n'
                 f'  <geom type="capsule" euler="0 90 0" size="{CABLE_SEG_RADIUS} {halflen}" '
-                f'mass="0.001" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
+                f'mass="{CABLE_SEG_MASS}" rgba="0.85 0.65 0.30 1" contype="1" conaffinity="1"/>'
             )
         bodies_close.append("</body>")
 
