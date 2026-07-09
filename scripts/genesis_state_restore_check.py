@@ -137,7 +137,7 @@ def _make_state_picklable(state):
     return state
 
 
-def _build_scene(case_name):
+def _build_two_box_scene(case_name):
     object_x = 0.045 if case_name == "contact" else 0.20
     tmp = _write_temp_mjcf(_two_box_mjcf(object_x))
     scene = gs.Scene(
@@ -149,6 +149,27 @@ def _build_scene(case_name):
     scene.reset()
     Path(tmp).unlink(missing_ok=True)
     return scene, ent
+
+
+def _build_box_push_scene():
+    scene = gs.Scene(
+        sim_options=gs.options.SimOptions(dt=2e-3, substeps=4, substeps_local=4, requires_grad=False),
+        show_viewer=False,
+    )
+    scene.add_entity(gs.morphs.Plane(pos=(0.0, 0.0, -0.001)))
+    pusher = scene.add_entity(gs.morphs.Box(size=(0.04, 0.05, 0.04), pos=(0.0, 0.0, 0.025)))
+    scene.add_entity(gs.morphs.Box(size=(0.04, 0.05, 0.04), pos=(0.045, 0.0, 0.025)))
+    scene.build()
+    scene.reset()
+    return scene, pusher
+
+
+def _build_scene(case_name):
+    if case_name == "box_push":
+        return _build_box_push_scene()
+    if case_name in ("no_contact", "contact"):
+        return _build_two_box_scene(case_name)
+    raise ValueError(f"unknown case: {case_name}")
 
 
 def _run_load_state_worker(case_name, state_path, vx):

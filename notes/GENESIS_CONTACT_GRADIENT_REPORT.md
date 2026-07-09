@@ -164,12 +164,12 @@ The investigation loop is complete enough for motivation. The next step should b
 
 Scripts:
 
-- `scripts/grad_fd_check.py`
-- `scripts/traj_opt_grasp.py`
-- `scripts/rope_no_rope_grad_compare.py`
-- `scripts/box_pos_grad_probe.py`
-- `scripts/traj_opt_box_push.py`
-- `scripts/two_box_same_mjcf_contact_grad.py`
+- `scripts/legacy/grad_fd_check.py`
+- `scripts/legacy/traj_opt_grasp.py`
+- `scripts/legacy/rope_no_rope_grad_compare.py`
+- `scripts/legacy/box_pos_grad_probe.py`
+- `scripts/legacy/traj_opt_box_push.py`
+- `scripts/legacy/two_box_same_mjcf_contact_grad.py`
 
 Outputs:
 

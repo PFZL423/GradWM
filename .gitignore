@@ -18,8 +18,11 @@ logs/runs/
 AGENTS.md
 notes/PHASE_1B_LOG.md
 notes/PHASE_*_LOG.md
-
+notes/
 # video artifacts (local only, too heavy for remote)
 *.mp4
 *.gif
 analysis/rope_sweep/
+
+# generated experiment outputs (local only)
+analysis/[0-9][0-9][0-9][0-9]-*/

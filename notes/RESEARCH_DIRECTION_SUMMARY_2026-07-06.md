@@ -204,7 +204,7 @@ Then add:
 - `notes/CONTACT_VJP_ROUTE_NOTE_2026-07-03.md`: earlier route note after senior meeting.
 - `notes/LOCAL_ANCHOR_STATE_RESTORE_SURVEY_2026-07-04.md`: state-restore experiment details.
 - `scripts/genesis_state_restore_check.py`: state restore / cross-process replay script.
-- `scripts/two_box_same_mjcf_contact_grad.py`: two-box contact-gradient probe.
-- `scripts/rope_no_rope_grad_compare.py`: rope/no-rope gradient comparison.
+- `scripts/legacy/two_box_same_mjcf_contact_grad.py`: two-box contact-gradient probe.
+- `scripts/legacy/rope_no_rope_grad_compare.py`: rope/no-rope gradient comparison.
 - `analysis/genesis_state_restore_no_contact.json`: no-contact state-restore result.
 - `analysis/genesis_state_restore_contact.json`: contact state-restore result.
