@@ -23,6 +23,10 @@ Results and caveats are recorded in
   replay-consistent anchors.
 - `a5_action_vjp_v2_closed_loop.py`: select update scale on validation anchors
   and run the frozen held-out one-step descent gate.
+- `a5_marginal_cohort_probe.py`: freeze and evaluate rejected contact cohorts
+  with two independent pristine-replay direction sets, Genesis analytic
+  gradients, and the already selected closed-loop scale. It does not retrain
+  the stable model.
 
 ## Supporting Probes
 
@@ -41,4 +45,7 @@ analysis/2026-07-09_arx_pusher/
 
 The final replay-consistent artifacts are under
 `action_vjp_v2_replay330/final/`. The stable-contact action-side gate passed on
-113 held-out anchors; state-side VJP and policy training have not started.
+113 held-out anchors. The follow-up `marginal_probe/` result rejects a single
+direction-independent matrix target for cross-epsilon/mode-mixed contacts, so
+contact-feature training was not started. State-side VJP and policy training
+have not started.

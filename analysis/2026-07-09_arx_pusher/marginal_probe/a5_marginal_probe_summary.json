@@ -1,0 +1,1095 @@
+{
+  "description": "A5 frozen marginal/rejected cohort Phase-1 probe",
+  "created_at": "2026-07-10 15:58:28 +0800",
+  "command": "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage all --gpu-ids 0,1,2,3",
+  "commands_run": [
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage select",
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage replay --gpu-ids 0,1,2,3",
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage labels --gpu-ids 0,1,2,3",
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage analytic --gpu-ids 0,1,2,3 --workers 8",
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage closed --gpu-ids 0,1,2,3 --workers 8",
+    "conda run -n genesis --no-capture-output python scripts/arx/a5_marginal_cohort_probe.py --stage finalize --gpu-ids 0,1,2,3"
+  ],
+  "frozen_inputs": {
+    "prefilter_matrices": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_restore_prefilter1200/trusted/a5_action_vjp_v2_anchor_matrices.csv",
+    "dense_manifest": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_dense_scan26568/a5_action_vjp_v2_dense_scan26568_frozen_split.csv",
+    "stable_matrices": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_replay330/final/a5_action_vjp_v2_final_matrices.csv",
+    "stable_checkpoint": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_replay330/final/train/a5_action_vjp_v2_model.pt",
+    "stable_closed_summary": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_replay330/final/closed_loop/a5_action_vjp_v2_closed_loop_summary.json",
+    "sha256": {
+      "prefilter_matrices": "be1d8390d98aa8a032f154f95787651f7376d47541c1ed43f53543638a5826e4",
+      "dense_manifest": "806b14651c02f433deb30b7595efd33d166e07f20179ba545fa9b16b0271ef9c",
+      "stable_matrices": "43cc1133000f28ef9a2beaf4c578a7e8cbc9b748c3a3657232285ff79eb10612",
+      "stable_checkpoint": "a19ee96249833d0ed3f149303f98b94b8808e7fdb3cf4b70165f559b42bc9585"
+    }
+  },
+  "protocol": {
+    "branch": "pristine_serial_replay",
+    "probe_sets": 2,
+    "random_directions_per_set": 8,
+    "epsilons": [
+      0.003,
+      0.01
+    ],
+    "truth_fit": "combined independent random-direction LSQ at epsilon=0.01",
+    "held_direction": "axis directions excluded from truth fit",
+    "action_scale": 0.01,
+    "target_dvy": 0.05,
+    "marginal_scale_tuning": false
+  },
+  "selection": {
+    "num_selected": 96,
+    "subtype_counts": {
+      "cross_only": 32,
+      "signature_only": 32,
+      "both": 32
+    },
+    "original_split_counts": {
+      "train": 50,
+      "test_id": 18,
+      "val": 8,
+      "test_ood": 20
+    },
+    "phase1_role": "frozen_diagnostic_test_never_phase2_train"
+  },
+  "label_reliability": {
+    "num_selected": 96,
+    "num_replay_complete": 96,
+    "replay_complete_rate": 1.0,
+    "label_label_y_cosine": {
+      "num": 96,
+      "min": -0.8212274641389081,
+      "q25": -0.1683516152508747,
+      "median": 0.36334181595973014,
+      "q75": 0.8873557112684711,
+      "max": 0.999999781474532
+    },
+    "probe_a_on_b_y_cosine": {
+      "num": 96,
+      "min": -0.7380595463893489,
+      "q25": 0.04124857677450777,
+      "median": 0.3802488180838296,
+      "q75": 0.8519975305713776,
+      "max": 0.9999997399821434
+    },
+    "probe_b_on_a_y_cosine": {
+      "num": 96,
+      "min": -0.6291188831479602,
+      "q25": 0.0012158635380950314,
+      "median": 0.46327278755172896,
+      "q75": 0.8696298882557904,
+      "max": 0.9999997906773714
+    },
+    "oracle_axis_y_cosine": {
+      "num": 96,
+      "min": -0.8047353946947768,
+      "q25": -0.12290973538762952,
+      "median": 0.548092962061032,
+      "q75": 0.9252736769611827,
+      "max": 0.9999998134748824
+    },
+    "oracle_axis_y_relative_rmse": {
+      "num": 96,
+      "min": 0.0006564505623930563,
+      "q25": 0.4287467663977086,
+      "median": 0.9226917308124203,
+      "q75": 1.3541397133854578,
+      "max": 3.9784427607633117
+    },
+    "axis_repeat_y_cosine": {
+      "num": 96,
+      "min": 0.9999999999999998,
+      "q25": 1.0,
+      "median": 1.0,
+      "q75": 1.0,
+      "max": 1.0000000000000002
+    },
+    "axis_repeat_y_max_abs": {
+      "num": 96,
+      "min": 0.0,
+      "q25": 0.0,
+      "median": 0.0,
+      "q75": 0.0,
+      "max": 0.0
+    },
+    "probe_a_epsilon_y_cosine": {
+      "num": 96,
+      "min": -0.9661260657180327,
+      "q25": -0.2487140769111029,
+      "median": 0.5209544224327749,
+      "q75": 0.8818934595759534,
+      "max": 0.9999974725827201
+    },
+    "probe_b_epsilon_y_cosine": {
+      "num": 96,
+      "min": -0.9484523085454557,
+      "q25": -0.28534813699649086,
+      "median": 0.282115419751808,
+      "q75": 0.7143909836893174,
+      "max": 0.9999984598973969
+    },
+    "target_label_norm_ratio": {
+      "num": 96,
+      "min": 1.0000996260988024,
+      "q25": 1.0610312918115932,
+      "median": 1.4261555607948706,
+      "q75": 2.134928638396085,
+      "max": 9.786279288772027
+    },
+    "probe_a_epsilon_norm_ratio": {
+      "num": 96,
+      "min": 1.0006579744341746,
+      "q25": 1.3746523928005272,
+      "median": 2.7478943799616644,
+      "q75": 4.404674170479014,
+      "max": 24.302610589959308
+    },
+    "probe_b_epsilon_norm_ratio": {
+      "num": 96,
+      "min": 1.0008375729197416,
+      "q25": 1.4376924040886248,
+      "median": 2.414450068666551,
+      "q75": 3.769806192788417,
+      "max": 42.61012985700672
+    },
+    "truth_y_norm": {
+      "num": 96,
+      "min": 4.965749145965862e-06,
+      "q25": 0.01044915561504133,
+      "median": 0.05928376235128266,
+      "q75": 0.17545972767254023,
+      "max": 1.441453399799349
+    },
+    "probe_a_signature_equal_rate": {
+      "num": 96,
+      "min": 0.06666666666666667,
+      "q25": 0.5333333333333333,
+      "median": 0.6666666666666666,
+      "q75": 0.8666666666666667,
+      "max": 1.0
+    },
+    "probe_b_signature_equal_rate": {
+      "num": 96,
+      "min": 0.0,
+      "q25": 0.5333333333333333,
+      "median": 0.6666666666666666,
+      "q75": 0.8166666666666667,
+      "max": 1.0
+    },
+    "cross_probe_y_cosine_min": {
+      "num": 96,
+      "min": -0.7380595463893489,
+      "q25": -0.16078021748242566,
+      "median": 0.23449415120124367,
+      "q75": 0.7874616156909158,
+      "max": 0.9999997399821434
+    },
+    "epsilon_y_cosine_min": {
+      "num": 96,
+      "min": -0.9661260657180327,
+      "q25": -0.4852040617681092,
+      "median": -0.1589789026425843,
+      "q75": 0.5215363119319106,
+      "max": 0.9999974725827201
+    },
+    "max_norm_ratio": {
+      "num": 96,
+      "min": 1.0014866703208,
+      "q25": 2.286340793107954,
+      "median": 3.683538581520075,
+      "q75": 6.114079943584865,
+      "max": 42.61012985700672
+    }
+  },
+  "label_reliability_by_subtype": {
+    "cross_only": {
+      "num_selected": 32,
+      "num_replay_complete": 32,
+      "replay_complete_rate": 1.0,
+      "label_label_y_cosine": {
+        "num": 32,
+        "min": -0.8212274641389081,
+        "q25": -0.2633579530013485,
+        "median": 0.19583209794817236,
+        "q75": 0.6302864313592808,
+        "max": 0.9680197927486174
+      },
+      "probe_a_on_b_y_cosine": {
+        "num": 32,
+        "min": -0.7380595463893489,
+        "q25": -0.18087824075565673,
+        "median": 0.21518776732040273,
+        "q75": 0.6378012025562013,
+        "max": 0.9904717940655502
+      },
+      "probe_b_on_a_y_cosine": {
+        "num": 32,
+        "min": -0.5549029818532276,
+        "q25": -0.11716121412654248,
+        "median": 0.17184921517491525,
+        "q75": 0.6197965708936883,
+        "max": 0.978417516841636
+      },
+      "oracle_axis_y_cosine": {
+        "num": 32,
+        "min": -0.7013625601535493,
+        "q25": -0.17490090140744508,
+        "median": 0.34273079191611855,
+        "q75": 0.640104316473109,
+        "max": 0.990351799656652
+      },
+      "oracle_axis_y_relative_rmse": {
+        "num": 32,
+        "min": 0.14790890342605456,
+        "q25": 0.8186348301355403,
+        "median": 1.1133879020548734,
+        "q75": 1.4348237684824299,
+        "max": 3.4549526909850816
+      },
+      "axis_repeat_y_cosine": {
+        "num": 32,
+        "min": 0.9999999999999998,
+        "q25": 1.0,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0000000000000002
+      },
+      "axis_repeat_y_max_abs": {
+        "num": 32,
+        "min": 0.0,
+        "q25": 0.0,
+        "median": 0.0,
+        "q75": 0.0,
+        "max": 0.0
+      },
+      "probe_a_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.9372188156714897,
+        "q25": -0.35075929282036195,
+        "median": 0.2676011183298052,
+        "q75": 0.5916830619687095,
+        "max": 0.9542223509838361
+      },
+      "probe_b_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.887894635738885,
+        "q25": -0.41081945099633954,
+        "median": -0.1269331988320153,
+        "q75": 0.4991246891616803,
+        "max": 0.9412449105937661
+      },
+      "target_label_norm_ratio": {
+        "num": 32,
+        "min": 1.004538146751539,
+        "q25": 1.3063350776485683,
+        "median": 1.6188011361315673,
+        "q75": 2.357387628490695,
+        "max": 9.786279288772027
+      },
+      "probe_a_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.0197348227847038,
+        "q25": 2.1278827586006046,
+        "median": 3.157337487827025,
+        "q75": 4.6713357618533955,
+        "max": 24.302610589959308
+      },
+      "probe_b_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.1046666047657603,
+        "q25": 2.402131004095791,
+        "median": 3.147228865473929,
+        "q75": 4.150514775610413,
+        "max": 42.61012985700672
+      },
+      "truth_y_norm": {
+        "num": 32,
+        "min": 4.965749145965862e-06,
+        "q25": 0.024555229185067348,
+        "median": 0.07247548547003989,
+        "q75": 0.15541582089505845,
+        "max": 1.1865364282617463
+      },
+      "probe_a_signature_equal_rate": {
+        "num": 32,
+        "min": 0.6666666666666666,
+        "q25": 0.8666666666666667,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0
+      },
+      "probe_b_signature_equal_rate": {
+        "num": 32,
+        "min": 0.6666666666666666,
+        "q25": 0.8,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0
+      },
+      "cross_probe_y_cosine_min": {
+        "num": 32,
+        "min": -0.7380595463893489,
+        "q25": -0.31841604452067224,
+        "median": 0.12284760154849013,
+        "q75": 0.5119536136346171,
+        "max": 0.9463454022142761
+      },
+      "epsilon_y_cosine_min": {
+        "num": 32,
+        "min": -0.9372188156714897,
+        "q25": -0.5433190238030697,
+        "median": -0.2814927538026011,
+        "q75": -0.02590969436046532,
+        "max": 0.6807500775167903
+      },
+      "max_norm_ratio": {
+        "num": 32,
+        "min": 1.9281172875289538,
+        "q25": 3.062964909280659,
+        "median": 4.6285496526827,
+        "q75": 7.228581116284086,
+        "max": 42.61012985700672
+      }
+    },
+    "signature_only": {
+      "num_selected": 32,
+      "num_replay_complete": 32,
+      "replay_complete_rate": 1.0,
+      "label_label_y_cosine": {
+        "num": 32,
+        "min": -0.7185784463106999,
+        "q25": 0.33673542640041176,
+        "median": 0.9913860538604309,
+        "q75": 0.9998583884258304,
+        "max": 0.999999781474532
+      },
+      "probe_a_on_b_y_cosine": {
+        "num": 32,
+        "min": -0.4307781383605971,
+        "q25": 0.6472881216476468,
+        "median": 0.9941384740499813,
+        "q75": 0.9999188942533899,
+        "max": 0.9999997399821434
+      },
+      "probe_b_on_a_y_cosine": {
+        "num": 32,
+        "min": -0.17475625146688606,
+        "q25": 0.6460960814869282,
+        "median": 0.9949883076989077,
+        "q75": 0.999889702685042,
+        "max": 0.9999997906773714
+      },
+      "oracle_axis_y_cosine": {
+        "num": 32,
+        "min": -0.7564418460609587,
+        "q25": 0.8276078963769123,
+        "median": 0.9971454360610348,
+        "q75": 0.9999542940721827,
+        "max": 0.9999998134748824
+      },
+      "oracle_axis_y_relative_rmse": {
+        "num": 32,
+        "min": 0.0006564505623930563,
+        "q25": 0.009490741220647508,
+        "median": 0.0923025744520013,
+        "q75": 0.6560855911481125,
+        "max": 1.6852338026896612
+      },
+      "axis_repeat_y_cosine": {
+        "num": 32,
+        "min": 0.9999999999999998,
+        "q25": 0.9999999999999999,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0000000000000002
+      },
+      "axis_repeat_y_max_abs": {
+        "num": 32,
+        "min": 0.0,
+        "q25": 0.0,
+        "median": 0.0,
+        "q75": 0.0,
+        "max": 0.0
+      },
+      "probe_a_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.4587894612245682,
+        "q25": 0.7171639758972084,
+        "median": 0.984461310969533,
+        "q75": 0.9996212743540529,
+        "max": 0.9999974725827201
+      },
+      "probe_b_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.9484523085454557,
+        "q25": 0.43045017754881076,
+        "median": 0.9685586244960129,
+        "q75": 0.9995741478044332,
+        "max": 0.9999984598973969
+      },
+      "target_label_norm_ratio": {
+        "num": 32,
+        "min": 1.0000996260988024,
+        "q25": 1.003472354756838,
+        "median": 1.044944689294149,
+        "q75": 1.3358447455506006,
+        "max": 4.127912712207133
+      },
+      "probe_a_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.0006579744341746,
+        "q25": 1.0031814340012228,
+        "median": 1.0673641402886367,
+        "q75": 3.110953397485229,
+        "max": 9.212693478049768
+      },
+      "probe_b_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.0008375729197416,
+        "q25": 1.0130090804777083,
+        "median": 1.087550498188139,
+        "q75": 1.9650573473476496,
+        "max": 5.954240548502917
+      },
+      "truth_y_norm": {
+        "num": 32,
+        "min": 0.0015001100035512177,
+        "q25": 0.005325109230097349,
+        "median": 0.009160089796686515,
+        "q75": 0.04214579706347025,
+        "max": 0.9615154449836772
+      },
+      "probe_a_signature_equal_rate": {
+        "num": 32,
+        "min": 0.06666666666666667,
+        "q25": 0.5333333333333333,
+        "median": 0.5666666666666667,
+        "q75": 0.7333333333333333,
+        "max": 0.8666666666666667
+      },
+      "probe_b_signature_equal_rate": {
+        "num": 32,
+        "min": 0.0,
+        "q25": 0.5166666666666666,
+        "median": 0.5666666666666667,
+        "q75": 0.6666666666666666,
+        "max": 0.8
+      },
+      "cross_probe_y_cosine_min": {
+        "num": 32,
+        "min": -0.4307781383605971,
+        "q25": 0.47985397960637033,
+        "median": 0.9920143619645534,
+        "q75": 0.9998872007871002,
+        "max": 0.9999997399821434
+      },
+      "epsilon_y_cosine_min": {
+        "num": 32,
+        "min": -0.9484523085454557,
+        "q25": 0.029399620578560992,
+        "median": 0.9498991535902844,
+        "q75": 0.9985159234095855,
+        "max": 0.9999974725827201
+      },
+      "max_norm_ratio": {
+        "num": 32,
+        "min": 1.0014866703208,
+        "q25": 1.0302392957840123,
+        "median": 1.1072441820195391,
+        "q75": 3.5971041369879004,
+        "max": 9.212693478049768
+      }
+    },
+    "both": {
+      "num_selected": 32,
+      "num_replay_complete": 32,
+      "replay_complete_rate": 1.0,
+      "label_label_y_cosine": {
+        "num": 32,
+        "min": -0.7441168148296843,
+        "q25": -0.21287848300617873,
+        "median": 0.002394997847548687,
+        "q75": 0.4421073326557129,
+        "max": 0.7802759328154669
+      },
+      "probe_a_on_b_y_cosine": {
+        "num": 32,
+        "min": -0.5960905656853247,
+        "q25": -0.015287113233295482,
+        "median": 0.1883125485097628,
+        "q75": 0.39427993753993096,
+        "max": 0.8499064892585522
+      },
+      "probe_b_on_a_y_cosine": {
+        "num": 32,
+        "min": -0.6291188831479602,
+        "q25": -0.27396228650815785,
+        "median": 0.35037162585546366,
+        "q75": 0.5394263398966564,
+        "max": 0.8309147793849463
+      },
+      "oracle_axis_y_cosine": {
+        "num": 32,
+        "min": -0.8047353946947768,
+        "q25": -0.2190712506106171,
+        "median": 0.10760852263669446,
+        "q75": 0.5597733256807789,
+        "max": 0.9516831025482141
+      },
+      "oracle_axis_y_relative_rmse": {
+        "num": 32,
+        "min": 0.46003146944327855,
+        "q25": 0.8643182018601658,
+        "median": 1.2014954633989172,
+        "q75": 1.6137575408773057,
+        "max": 3.9784427607633117
+      },
+      "axis_repeat_y_cosine": {
+        "num": 32,
+        "min": 0.9999999999999998,
+        "q25": 1.0,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0000000000000002
+      },
+      "axis_repeat_y_max_abs": {
+        "num": 32,
+        "min": 0.0,
+        "q25": 0.0,
+        "median": 0.0,
+        "q75": 0.0,
+        "max": 0.0
+      },
+      "probe_a_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.9661260657180327,
+        "q25": -0.48560279982142923,
+        "median": 0.19355433119504786,
+        "q75": 0.7117119820160764,
+        "max": 0.9563325404216304
+      },
+      "probe_b_epsilon_y_cosine": {
+        "num": 32,
+        "min": -0.8551155403313496,
+        "q25": -0.3140560439782517,
+        "median": -0.0013297839625818486,
+        "q75": 0.43036230189660785,
+        "max": 0.8703740928541939
+      },
+      "target_label_norm_ratio": {
+        "num": 32,
+        "min": 1.0456260426389161,
+        "q25": 1.256852413727671,
+        "median": 1.570891225613841,
+        "q75": 2.268262532001658,
+        "max": 6.2014902545820325
+      },
+      "probe_a_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.0598379372456919,
+        "q25": 2.2355736785553573,
+        "median": 3.118809896799222,
+        "q75": 4.662348702110103,
+        "max": 11.743808362863463
+      },
+      "probe_b_epsilon_norm_ratio": {
+        "num": 32,
+        "min": 1.231606273890955,
+        "q25": 2.091242711288525,
+        "median": 2.8049753699090294,
+        "q75": 6.242421511482808,
+        "max": 14.506395172773589
+      },
+      "truth_y_norm": {
+        "num": 32,
+        "min": 0.008896601977023902,
+        "q25": 0.05235043597065699,
+        "median": 0.15675043338179845,
+        "q75": 0.3736771780929903,
+        "max": 1.441453399799349
+      },
+      "probe_a_signature_equal_rate": {
+        "num": 32,
+        "min": 0.3333333333333333,
+        "q25": 0.45,
+        "median": 0.5333333333333333,
+        "q75": 0.6666666666666666,
+        "max": 0.8666666666666667
+      },
+      "probe_b_signature_equal_rate": {
+        "num": 32,
+        "min": 0.2,
+        "q25": 0.4666666666666667,
+        "median": 0.5666666666666667,
+        "q75": 0.6666666666666666,
+        "max": 0.8666666666666667
+      },
+      "cross_probe_y_cosine_min": {
+        "num": 32,
+        "min": -0.6291188831479602,
+        "q25": -0.27396228650815785,
+        "median": 0.06802757912890253,
+        "q75": 0.25228123043458117,
+        "max": 0.6461115268468132
+      },
+      "epsilon_y_cosine_min": {
+        "num": 32,
+        "min": -0.9661260657180327,
+        "q25": -0.6795567136124073,
+        "median": -0.3407785399160392,
+        "q75": 0.21450672509795632,
+        "max": 0.6480532230029301
+      },
+      "max_norm_ratio": {
+        "num": 32,
+        "min": 2.217657016863481,
+        "q25": 3.379008955215413,
+        "median": 4.938600515738701,
+        "q75": 8.98561106635811,
+        "max": 14.506395172773589
+      }
+    }
+  },
+  "methods": {
+    "zero": {
+      "num_selected": 96,
+      "num_replay_complete": 96,
+      "num_model_evaluable": 96,
+      "num_closed_evaluable": 96,
+      "nonzero_rate": 0.0,
+      "y_cosine": {
+        "num": 0,
+        "min": null,
+        "q25": null,
+        "median": null,
+        "q75": null,
+        "max": null
+      },
+      "sign_agreement": 0.0,
+      "descent_rate": 0.0,
+      "ascent_rate": 0.0,
+      "separated_rate": 0.0
+    },
+    "global": {
+      "num_selected": 96,
+      "num_replay_complete": 96,
+      "num_model_evaluable": 96,
+      "num_closed_evaluable": 96,
+      "nonzero_rate": 1.0,
+      "y_cosine": {
+        "num": 96,
+        "min": -0.709818267486462,
+        "q25": -0.01884130709776481,
+        "median": 0.4641707999264597,
+        "q75": 0.8685101483021247,
+        "max": 0.9787118162628367
+      },
+      "sign_agreement": 0.6631944444444445,
+      "descent_rate": 0.8020833333333334,
+      "ascent_rate": 0.22916666666666666,
+      "separated_rate": 0.59375
+    },
+    "learned": {
+      "num_selected": 96,
+      "num_replay_complete": 96,
+      "num_model_evaluable": 96,
+      "num_closed_evaluable": 96,
+      "nonzero_rate": 1.0,
+      "y_cosine": {
+        "num": 96,
+        "min": -0.8203290586348055,
+        "q25": 0.010806236631653832,
+        "median": 0.5553325148764471,
+        "q75": 0.9093307181930743,
+        "max": 0.999500046624513
+      },
+      "sign_agreement": 0.6684027777777777,
+      "descent_rate": 0.8125,
+      "ascent_rate": 0.21875,
+      "separated_rate": 0.6354166666666666
+    },
+    "analytic": {
+      "num_selected": 96,
+      "num_replay_complete": 96,
+      "num_model_evaluable": 96,
+      "num_closed_evaluable": 96,
+      "nonzero_rate": 0.0,
+      "y_cosine": {
+        "num": 0,
+        "min": null,
+        "q25": null,
+        "median": null,
+        "q75": null,
+        "max": null
+      },
+      "sign_agreement": 0.0,
+      "descent_rate": 0.0,
+      "ascent_rate": 0.0,
+      "separated_rate": 0.0
+    },
+    "oracle": {
+      "num_selected": 96,
+      "num_replay_complete": 96,
+      "num_model_evaluable": 96,
+      "num_closed_evaluable": 96,
+      "nonzero_rate": 1.0,
+      "y_cosine": {
+        "num": 96,
+        "min": 0.9999999999999998,
+        "q25": 0.9999999999999999,
+        "median": 1.0,
+        "q75": 1.0,
+        "max": 1.0000000000000002
+      },
+      "sign_agreement": 1.0,
+      "descent_rate": 0.6666666666666666,
+      "ascent_rate": 0.2604166666666667,
+      "separated_rate": 0.5
+    }
+  },
+  "methods_by_subtype": {
+    "cross_only": {
+      "zero": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "global": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.6375336932147818,
+          "q25": -0.06177043048539568,
+          "median": 0.39056060785018076,
+          "q75": 0.7105930234356145,
+          "max": 0.9787118162628367
+        },
+        "sign_agreement": 0.6302083333333333,
+        "descent_rate": 0.75,
+        "ascent_rate": 0.28125,
+        "separated_rate": 0.5
+      },
+      "learned": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.5113307503682661,
+          "q25": 0.0012129819229874982,
+          "median": 0.43946828073658806,
+          "q75": 0.7503969425756466,
+          "max": 0.9894324977414531
+        },
+        "sign_agreement": 0.6354166666666667,
+        "descent_rate": 0.875,
+        "ascent_rate": 0.28125,
+        "separated_rate": 0.65625
+      },
+      "analytic": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "oracle": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": 0.9999999999999998,
+          "q25": 0.9999999999999999,
+          "median": 1.0,
+          "q75": 1.0,
+          "max": 1.0000000000000002
+        },
+        "sign_agreement": 1.0,
+        "descent_rate": 0.6875,
+        "ascent_rate": 0.40625,
+        "separated_rate": 0.34375
+      }
+    },
+    "signature_only": {
+      "zero": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "global": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.5559980142146016,
+          "q25": 0.5998277051860492,
+          "median": 0.8921204644758268,
+          "q75": 0.91441203195633,
+          "max": 0.9745787458173304
+        },
+        "sign_agreement": 0.84375,
+        "descent_rate": 0.90625,
+        "ascent_rate": 0.09375,
+        "separated_rate": 0.8125
+      },
+      "learned": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.6352290107573344,
+          "q25": 0.6662200754734715,
+          "median": 0.9469239495637269,
+          "q75": 0.9865783402731084,
+          "max": 0.999500046624513
+        },
+        "sign_agreement": 0.8541666666666667,
+        "descent_rate": 0.875,
+        "ascent_rate": 0.125,
+        "separated_rate": 0.78125
+      },
+      "analytic": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "oracle": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": 0.9999999999999998,
+          "q25": 0.9999999999999999,
+          "median": 1.0,
+          "q75": 1.0,
+          "max": 1.0000000000000002
+        },
+        "sign_agreement": 1.0,
+        "descent_rate": 0.96875,
+        "ascent_rate": 0.09375,
+        "separated_rate": 0.875
+      }
+    },
+    "both": {
+      "zero": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "global": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.709818267486462,
+          "q25": -0.3161385722267958,
+          "median": 0.15155445408597362,
+          "q75": 0.474292972890898,
+          "max": 0.8971502778403155
+        },
+        "sign_agreement": 0.515625,
+        "descent_rate": 0.75,
+        "ascent_rate": 0.3125,
+        "separated_rate": 0.46875
+      },
+      "learned": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": -0.8203290586348055,
+          "q25": -0.2555508374571723,
+          "median": 0.0888814957683759,
+          "q75": 0.38399607277837833,
+          "max": 0.9720214014428111
+        },
+        "sign_agreement": 0.515625,
+        "descent_rate": 0.6875,
+        "ascent_rate": 0.25,
+        "separated_rate": 0.46875
+      },
+      "analytic": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 0.0,
+        "y_cosine": {
+          "num": 0,
+          "min": null,
+          "q25": null,
+          "median": null,
+          "q75": null,
+          "max": null
+        },
+        "sign_agreement": 0.0,
+        "descent_rate": 0.0,
+        "ascent_rate": 0.0,
+        "separated_rate": 0.0
+      },
+      "oracle": {
+        "num_selected": 32,
+        "num_replay_complete": 32,
+        "num_model_evaluable": 32,
+        "num_closed_evaluable": 32,
+        "nonzero_rate": 1.0,
+        "y_cosine": {
+          "num": 32,
+          "min": 0.9999999999999998,
+          "q25": 1.0,
+          "median": 1.0,
+          "q75": 1.0000000000000002,
+          "max": 1.0000000000000002
+        },
+        "sign_agreement": 1.0,
+        "descent_rate": 0.34375,
+        "ascent_rate": 0.28125,
+        "separated_rate": 0.28125
+      }
+    }
+  },
+  "stable_reference": {
+    "num": 113,
+    "num_ok": 113,
+    "nonzero_rate": 1.0,
+    "descent_rate": 0.9911504424778761,
+    "ascent_rate": 0.008849557522123894,
+    "separated_rate": 0.9911504424778761,
+    "gradient_cosine_median": 0.9878130118650089
+  },
+  "stable_relative_degradation": {
+    "stable_cosine": 0.9878130118650089,
+    "marginal_cosine": 0.5553325148764471,
+    "cosine_change": -0.43248049698856184,
+    "stable_descent": 0.9911504424778761,
+    "marginal_descent": 0.8125,
+    "descent_change": -0.1786504424778761
+  },
+  "decision": {
+    "label_direction_reliable": false,
+    "oracle_ceiling_pass": false,
+    "amplitude_stable": false,
+    "learned_marginal_median_cosine": 0.5553325148764471,
+    "learned_marginal_descent_rate": 0.8125,
+    "next_direction": "single_matrix_label_failure",
+    "rationale": "The marginal cohort does not provide a sufficiently coherent single-matrix target or oracle descent ceiling. Contact features cannot repair an ill-defined label; redesign must condition on direction/contact branch before model expansion."
+  },
+  "unexpected_observations": [
+    "Genesis analytic statuses: {'ok': 96}; nonzero velocity-y rows: 0/96.",
+    "Contact-signature changes remain common under target-scale perturbations.",
+    "Identical axis probes reproduced exactly across replay sets; random-set label disagreement is direction/branch dependence, not run-to-run noise.",
+    "The first closed-loop coordinator launch exposed a new-script-only Torch default-device bug after gs.init(gpu); forcing checkpoint inputs to CPU fixed it, and all 12 batches were rerun successfully."
+  ],
+  "global_matrix_reference": {
+    "y_row": [
+      0.007645588368177414,
+      0.00048719948972575366,
+      -0.005558035336434841,
+      0.002847104799002409,
+      -0.004043720196932554,
+      -0.0029560280963778496
+    ]
+  },
+  "artifacts": {
+    "csv": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe.csv",
+    "summary": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_summary.json",
+    "selection": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_frozen_selection.csv",
+    "labels": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_labels.csv",
+    "matrices": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_matrices.csv",
+    "analytic": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_analytic.csv",
+    "closed_loop": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/marginal_probe/a5_marginal_probe_closed_loop.csv",
+    "report": "/data/hayu/code/GradWM/notes/a5_vjp_progress/2026-07-10_marginal_probe.md"
+  }
+}
