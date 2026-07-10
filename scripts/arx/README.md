@@ -34,6 +34,10 @@ Results and caveats are recorded in
   one serial lane per GPU, fit held-out piecewise-linear maps, audit selector
   predictability, and emit the preregistered pass/fail report. It does not train
   a branch-conditional network.
+- `a5_gate_feasibility_probe.py`: build a trajectory-disjoint frozen
+  stable-like versus `both` dataset, evaluate fixed logistic-regression and
+  two-layer-MLP gates on X1/X2/X3 forward-pass features, and report the
+  replay-audited deployment decision. It does not train experts or an MoE.
 
 ## Supporting Probes
 
@@ -56,4 +60,7 @@ The final replay-consistent artifacts are under
 direction-independent matrix target for cross-epsilon/mode-mixed contacts, so
 contact-feature training was not started. The subsequent `both_branch_probe/`
 diagnostic also rejects a small branch-set repair under the preregistered K and
-selector gates. State-side VJP and policy training have not started.
+selector gates. The subsequent binary-gate diagnostic reaches only `0.527`
+replay-audited balanced accuracy with X3 plus the two-layer MLP and rejects a
+deployable stable-like versus `both` gate. State-side VJP and policy training
+have not started.

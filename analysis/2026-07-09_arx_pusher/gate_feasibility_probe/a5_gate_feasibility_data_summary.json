@@ -1,0 +1,164 @@
+{
+  "description": "A5 stable-like versus both-like gate frozen dataset",
+  "source_hashes": {
+    "prefilter": "be1d8390d98aa8a032f154f95787651f7376d47541c1ed43f53543638a5826e4",
+    "dense_manifest": "806b14651c02f433deb30b7595efd33d166e07f20179ba545fa9b16b0271ef9c",
+    "final_matrices": "43cc1133000f28ef9a2beaf4c578a7e8cbc9b748c3a3657232285ff79eb10612",
+    "marginal_selection": "7ba279141a304adce766d73d71418c429a4dec89206123c4c0d7437d1095e6bd",
+    "branch_selection": "72e484ede986f042292779e8334a7e18a50dbab8e45855588d1b1b3fad196e5a",
+    "branch_summary": "0323d86b54ff8676c42654a7e07da9e91f0569361c9f2dc41435d3436f557c73"
+  },
+  "feature_source": "/data/hayu/code/GradWM/analysis/2026-07-09_arx_pusher/action_vjp_v2_restore_prefilter1200/trusted/a5_action_vjp_v2_anchor_matrices.csv",
+  "feature_timing": "pre-action anchor state and anchor_contact only",
+  "feature_names": {
+    "X1": [
+      "arm_qpos_1",
+      "arm_qpos_2",
+      "arm_qpos_3",
+      "arm_qpos_4",
+      "arm_qpos_5",
+      "arm_qpos_6",
+      "arm_qvel_1",
+      "arm_qvel_2",
+      "arm_qvel_3",
+      "arm_qvel_4",
+      "arm_qvel_5",
+      "arm_qvel_6",
+      "obj_pos_x",
+      "obj_pos_y",
+      "obj_pos_z",
+      "obj_quat_w",
+      "obj_quat_x",
+      "obj_quat_y",
+      "obj_quat_z",
+      "obj_linvel_x",
+      "obj_linvel_y",
+      "obj_linvel_z",
+      "obj_angvel_x",
+      "obj_angvel_y",
+      "obj_angvel_z"
+    ],
+    "X2": [
+      "arm_qpos_1",
+      "arm_qpos_2",
+      "arm_qpos_3",
+      "arm_qpos_4",
+      "arm_qpos_5",
+      "arm_qpos_6",
+      "arm_qvel_1",
+      "arm_qvel_2",
+      "arm_qvel_3",
+      "arm_qvel_4",
+      "arm_qvel_5",
+      "arm_qvel_6",
+      "obj_pos_x",
+      "obj_pos_y",
+      "obj_pos_z",
+      "obj_quat_w",
+      "obj_quat_x",
+      "obj_quat_y",
+      "obj_quat_z",
+      "obj_linvel_x",
+      "obj_linvel_y",
+      "obj_linvel_z",
+      "obj_angvel_x",
+      "obj_angvel_y",
+      "obj_angvel_z",
+      "contact_point_obj_x",
+      "contact_point_obj_y",
+      "contact_point_obj_z",
+      "contact_normal_obj_x",
+      "contact_normal_obj_y",
+      "contact_normal_obj_z",
+      "contact_penetration_max"
+    ],
+    "X3": [
+      "arm_qpos_1",
+      "arm_qpos_2",
+      "arm_qpos_3",
+      "arm_qpos_4",
+      "arm_qpos_5",
+      "arm_qpos_6",
+      "arm_qvel_1",
+      "arm_qvel_2",
+      "arm_qvel_3",
+      "arm_qvel_4",
+      "arm_qvel_5",
+      "arm_qvel_6",
+      "obj_pos_x",
+      "obj_pos_y",
+      "obj_pos_z",
+      "obj_quat_w",
+      "obj_quat_x",
+      "obj_quat_y",
+      "obj_quat_z",
+      "obj_linvel_x",
+      "obj_linvel_y",
+      "obj_linvel_z",
+      "obj_angvel_x",
+      "obj_angvel_y",
+      "obj_angvel_z",
+      "contact_point_obj_x",
+      "contact_point_obj_y",
+      "contact_point_obj_z",
+      "contact_normal_obj_x",
+      "contact_normal_obj_y",
+      "contact_normal_obj_z",
+      "contact_penetration_max",
+      "nominal_action_1",
+      "nominal_action_2",
+      "nominal_action_3",
+      "nominal_action_4",
+      "nominal_action_5",
+      "nominal_action_6"
+    ]
+  },
+  "source_label_counts": {
+    "1": 481,
+    "0": 512
+  },
+  "frozen_ids": 241,
+  "frozen_trajectory_groups": 178,
+  "source_eligible_after_freeze": {
+    "1": 230,
+    "0": 232
+  },
+  "source_split_counts": {
+    "train": {
+      "0": 136,
+      "1": 136
+    },
+    "val": {
+      "0": 48,
+      "1": 47
+    },
+    "source_test": {
+      "0": 48,
+      "1": 47
+    }
+  },
+  "source_split_group_counts": {
+    "val": 29,
+    "source_test": 30,
+    "train": 140
+  },
+  "split_search_attempt": 0,
+  "split_group_overlap": {
+    "train:val": 0,
+    "train:source_test": 0,
+    "val:source_test": 0
+  },
+  "audited_counts": {
+    "1": 61,
+    "0": 145
+  },
+  "audited_provenance": {
+    "branch_replay_confirmed_both": 29,
+    "marginal_signature_only": 32,
+    "marginal_both": 32,
+    "v2_heldout_stable": 113
+  },
+  "train_val_to_audited_group_overlap": 0,
+  "dataset_rows": 668,
+  "dataset_sha256": "5ac515626aeaadffd54ff72e5bb51558e7f919a0c9de99114774ae90ea6b8266"
+}
