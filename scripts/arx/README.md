@@ -27,6 +27,13 @@ Results and caveats are recorded in
   with two independent pristine-replay direction sets, Genesis analytic
   gradients, and the already selected closed-loop scale. It does not retrain
   the stable model.
+- `a5_both_branch_collect_worker.py`: collect dense one-sided pristine-replay
+  responses and post-transition contact diagnostics for the frozen `both`
+  branch probe.
+- `a5_both_branch_probe.py`: freeze the 30-anchor diagnostic cohort, schedule
+  one serial lane per GPU, fit held-out piecewise-linear maps, audit selector
+  predictability, and emit the preregistered pass/fail report. It does not train
+  a branch-conditional network.
 
 ## Supporting Probes
 
@@ -47,5 +54,6 @@ The final replay-consistent artifacts are under
 `action_vjp_v2_replay330/final/`. The stable-contact action-side gate passed on
 113 held-out anchors. The follow-up `marginal_probe/` result rejects a single
 direction-independent matrix target for cross-epsilon/mode-mixed contacts, so
-contact-feature training was not started. State-side VJP and policy training
-have not started.
+contact-feature training was not started. The subsequent `both_branch_probe/`
+diagnostic also rejects a small branch-set repair under the preregistered K and
+selector gates. State-side VJP and policy training have not started.
